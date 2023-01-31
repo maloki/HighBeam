@@ -4419,7 +4419,7 @@ namespace HighBeam
                 if (isRightIndicatorOn && ledIndicatorsStayStopwatch.ElapsedMilliseconds < 375)
                 {
                     var leftStart = veh.GetOffsetInWorldCoords(new Vector3(0.6f, -1.99f, 0.2f));
-                    var leftEnd = veh.GetOffsetInWorldCoords(new Vector3(0.64f, -1.97f, 0.2f));
+                    var leftEnd = veh.GetOffsetInWorldCoords(new Vector3(0.64f, -1.97f, 0.2f)); 
                     var off = 0f;
                     for (var i = 0; i < 8; i++)
                     {
