@@ -35,4 +35,4 @@ List of some features with short description:
     GTA vanilla braking system is very simple, its either braking or not, depending on your controller trigger. 
     This feature is trying to recreate realistic BFD, you can find in real cars. 
     Each wheel is controlled individualy, and depending on condition on the road, it can give or take brake pressure,
-    to ensure car is braking effeci
+    to ensure car is braking evenly.
