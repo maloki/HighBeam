@@ -1,0 +1,435 @@
+﻿using GTA;
+using GTA.Math;
+using GTA.Native;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Media;
+using XInputDotNetPure;
+using static HighBeam.Main;
+using Color = System.Drawing.Color;
+
+namespace HighBeam
+{
+    public static class Crane
+    {
+        public static Stopwatch SpawnCraneStopwatch = new Stopwatch();
+        public static Prop basket;
+        public static Prop movableBasket = null;
+        public static bool isCraneMode = false;
+        public static bool isControllingCrane = false;
+        public static Prop lf;
+        public static Prop lr;
+        public static Prop rf;
+        public static Prop rr;
+        public static Prop baseCrane;
+        public static float wheelHeight = 0;
+        public static Prop body1;
+        public static Prop body2;
+        public static Prop crane1;
+        public static Prop crane2;
+        public static Prop crane3;
+        public static Prop crane4;
+        public static bool isCraneAttachedToTrailer = false;
+        public static Stopwatch craneExitStopwatch = new Stopwatch();
+        public static Camera defaultCam;
+        public static Camera mainCam;
+        public static Prop armHook;
+        public static Prop armHookFake;
+        public static float armX = 0;
+        public static float armY = -20f;
+        public static float armZ = 46f;
+        public static float armRot = 90f;
+        public static Entity attachedToHook = null;
+        public static Stopwatch attachToHookStopwatch = new Stopwatch();
+        public static float defaultFov = 0;
+        public static float hookHeightAboveGround = 0f;
+        public static float maxForwardArm = 244f;
+        public static float minForwardArm = 205.5f;
+        public static float forwardArmDist = 0f;
+        public static bool operatingCrane = false;
+        public static Vector3 enterCraneOffset = new Vector3();
+        public static Stopwatch craneEnterCabinStopwatch = new Stopwatch();
+        public static bool isMovingBaseCraneAudio = false;
+        public static bool isArmHookAudio = false;
+        public static bool isCraneAudioSet = false;
+        public static bool isArmAudioSet = false;
+        public static bool isCloseCam = false;
+        public static Stopwatch closeCamStopwatch = new Stopwatch();
+        public static void RunCrane()
+        {
+            if (Game.IsControlJustPressed(0, Control.Jump))
+            {
+             //   GTA.Native.Function.Call((Hash)0x3523634255FC3318, Game.Player.Character, "GENERIC_INSULT_HIGH", "S_M_Y_GENERICWORKER_01_WHITE_01", "Speech_Params_Force_Shouted_Critical", 0);
+            } 
+            if (!SpawnCraneStopwatch.IsRunning && Game.IsControlJustPressed(0, GTA.Control.ScriptPadLeft))
+            {
+                SpawnCraneStopwatch.Start(); 
+            }
+            if (Game.IsControlJustReleased(0, GTA.Control.ScriptPadLeft))
+            {
+                SpawnCraneStopwatch = new Stopwatch();
+            }
+            if (SpawnCraneStopwatch.IsRunning && SpawnCraneStopwatch.ElapsedMilliseconds > 3000)
+            {
+                SpawnCraneStopwatch = new Stopwatch();
+                if (isCraneMode)
+                {
+                    DeleteCrane();
+                    UI.Notify("Crane mode off");
+                }
+                else
+                {
+                    SpawnCrane();
+                    UI.Notify("Crane mode on");
+
+                    // Function.Call((Hash)0xE65F427EB70AB1ED, 82, "PLAYER_AT_SPEED_FREEFALL_MASTER", armHookFake, "", 0, 0);
+                    //  Function.Call((Hash)0xE65F427EB70AB1ED, 83, "PLAYER_AT_SPEED_FREEFALL_MASTER", armHookFake, "", 0, 0);
+                }
+                isCraneMode = isCraneMode ? false : true;
+            }
+            if (isCraneMode)
+            {
+                if (isControllingCrane)
+                {
+                    Game.Player.Character.IsVisible = false;
+                    Game.Player.Character.FreezePosition = true;
+                    CraneControls();
+                    CraneDisplays();
+                    baseCrane.FreezePosition = false;
+                }
+                else
+                {
+                    Game.Player.Character.FreezePosition = false;
+                    Game.Player.Character.IsVisible = true;
+                    baseCrane.FreezePosition = true;
+                }
+                if (!craneEnterCabinStopwatch.IsRunning)
+                    craneEnterCabinStopwatch.Start();
+                if (GamePad.GetState(PlayerIndex.One).Buttons.Y == ButtonState.Pressed && (enterCraneOffset.DistanceTo(Game.Player.Character.Position) < 5.5f || isControllingCrane) && craneEnterCabinStopwatch.ElapsedMilliseconds > 2000)
+                {
+                    if (isControllingCrane)
+                    {
+                        Game.Player.Character.Position = baseCrane.GetOffsetInWorldCoords(new Vector3(-2.4f, 2f, 43f));
+                    }
+                    isControllingCrane = isControllingCrane ? false : true;
+                    craneEnterCabinStopwatch = new Stopwatch();
+
+                }
+            }
+        }
+
+        public static void DeleteCrane()
+        {
+            baseCrane.Delete();
+            baseCrane = null;
+            armHook.Delete();
+            armHookFake.Delete();
+        }
+
+        public static void CraneDisplays()
+        {
+            forwardArmDist = new Vector3(armHook.Position.X, armHook.Position.Y, 46f).DistanceTo(baseCrane.GetOffsetInWorldCoords(new Vector3(0, 200, 46f)));
+            var minutes = World.CurrentDayTime.Minutes;
+            var ground = armHook.GetOffsetInWorldCoords(new Vector3(0, 1.2f, 0));
+            hookHeightAboveGround = World.GetDistance(ground, new Vector3(ground.X, ground.Y, 0)) - (World.GetGroundHeight(ground) >= 0 ? World.GetGroundHeight(ground) : 0) - 9.1f;
+            // UI.ShowSubtitle(hookHeightAboveGround.ToString() + "m");
+            var cont = new UIContainer(new Point(5, UI.HEIGHT - 150), new Size(200, 140), Color.FromArgb(255, 5, 5, 5));
+            cont.Items.Add(new UIText(("Height: " + Math.Round(hookHeightAboveGround, 1).ToString() + "m"), new Point(70, 30), 0.45f, Color.White, GTA.Font.ChaletLondon, true));
+            //cont.Items.Add(new UIText(("Arm Heading: " + Math.Round(armHook.Heading - baseCrane.Heading, 1).ToString() + "deg"), new Point(70, 56), 0.41f, Color.White, GTA.Font.ChaletLondon, true));
+            cont.Items.Add(new UIText((World.CurrentDayTime.Hours + ":" + (minutes.ToString().Length == 1 ? 0 + "" + minutes : minutes.ToString())), new Point(100, 7), 0.4f, Color.LawnGreen, GTA.Font.ChaletLondon, true));
+            cont.Enabled = true;
+            cont.Draw();
+        }
+
+        public static void CraneControls()
+        {
+
+            Game.DisableControlThisFrame(0, Control.SelectWeapon);
+            Game.DisableControlThisFrame(0, Control.Sprint);
+            if (!attachToHookStopwatch.IsRunning)
+                attachToHookStopwatch.Start();
+            if (!closeCamStopwatch.IsRunning)
+                closeCamStopwatch.Start();
+            Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, armHook.Position.X, armHook.Position.Y, armHook.Position.Z - 7f, 255, 255, 255, 20f, 4f);
+            // for first person cabin view Game.Player.Character.Position = baseCrane.GetOffsetInWorldCoords(new Vector3(-2f, -1.6f, 42.5f));
+            if (!isCloseCam)
+            {
+                Game.Player.Character.Position = baseCrane.GetOffsetInWorldCoords(new Vector3(-2f, -5f, 43f));
+                Game.Player.Character.Heading = baseCrane.Heading;
+            }
+            else
+            {
+                Game.Player.Character.Position = armHook.GetOffsetInWorldCoords(new Vector3(6f, 0f, -5f));
+                Game.Player.Character.Heading = baseCrane.Heading;
+            }
+            if (GamePad.GetState(PlayerIndex.One).ThumbSticks.Left.X != 0)
+            {
+                baseCrane.Rotation = baseCrane.Rotation + new Vector3(0, 0, (-GamePad.GetState(PlayerIndex.One).ThumbSticks.Left.X / 15));
+                isMovingBaseCraneAudio = true;
+            }
+            else
+            {
+                isMovingBaseCraneAudio = false;
+            }
+            float rotForce = 0.35f;
+            if (GamePad.GetState(PlayerIndex.One).Buttons.LeftShoulder == ButtonState.Pressed)
+            {
+                armRot += rotForce;
+            }
+            if (GamePad.GetState(PlayerIndex.One).Buttons.RightShoulder == ButtonState.Pressed)
+            {
+                armRot -= rotForce;
+            }
+            if (GamePad.GetState(PlayerIndex.One).Buttons.LeftShoulder == ButtonState.Pressed && GamePad.GetState(PlayerIndex.One).Buttons.RightShoulder == ButtonState.Pressed)
+                armRot = 90f;
+            if (GamePad.GetState(PlayerIndex.One).ThumbSticks.Left.Y != 0 || GamePad.GetState(PlayerIndex.One).Triggers.Left != 0 || GamePad.GetState(PlayerIndex.One).Triggers.Right != 0)
+            {
+                isArmHookAudio = true;
+                if (GamePad.GetState(PlayerIndex.One).Triggers.Left > 0.1 && baseCrane.GetOffsetInWorldCoords(new Vector3(0, 0, 46f)).Z > armHook.Position.Z)
+                {
+                    var val = GamePad.GetState(PlayerIndex.One).Triggers.Left / 30f;
+                    armZ += val;
+                }
+                if (GamePad.GetState(PlayerIndex.One).Triggers.Right > 0.1)
+                {
+                    var val = GamePad.GetState(PlayerIndex.One).Triggers.Right / 30f;
+                    armZ -= val;
+                }
+                if ((forwardArmDist > maxForwardArm && GamePad.GetState(PlayerIndex.One).ThumbSticks.Left.Y < -0.8) || (forwardArmDist < minForwardArm && GamePad.GetState(PlayerIndex.One).ThumbSticks.Left.Y > 0.8) || (forwardArmDist > minForwardArm && forwardArmDist < maxForwardArm))
+                    armY -= GamePad.GetState(PlayerIndex.One).ThumbSticks.Left.Y / 30;
+            }
+            else
+            {
+                isArmHookAudio = false;
+            }
+            armHook.AttachTo(baseCrane, 0, new Vector3(armX, armY, armZ), new Vector3(0, 0, armRot));
+            if (GamePad.GetState(PlayerIndex.One).Buttons.A == ButtonState.Pressed && attachToHookStopwatch.ElapsedMilliseconds > 1000)
+            {
+                if (attachedToHook == null)
+                {
+                    var list = World.GetNearbyEntities(armHook.Position, 20f);
+                    var lastPos = 99999f;
+                    attachedToHook = null;
+                    for (var i = 0; i < list.Length; i++)
+                    {
+                        var el = list[i];
+                        if (el.Model.Hash != -2128680992 && el.Position.DistanceTo(armHook.Position) < lastPos && !el.Model.IsPed)
+                        {
+                            attachedToHook = el;
+                            lastPos = el.Position.DistanceTo(armHook.Position);
+                        }
+                    }
+                    if (attachedToHook != null)
+                    {
+                        var diff = Math.Abs(attachedToHook.Heading - armHook.Heading) % 360;
+                        attachedToHook.AttachTo(armHook, 0, new Vector3(0, 0, -10f), new Vector3(0, 0, diff));
+                    }
+                }
+                else
+                {
+                    attachedToHook.Detach();
+                    //   var groundHeight = Function.Call<float>(Hash.GET_GROUND_Z_FOR_3D_COORD, armHook.Position.X, armHook.Position.Y, armHook.Position.Z);
+                    attachedToHook.ApplyForce(new Vector3(0, 0, -2f));
+                    attachedToHook = null;
+                }
+                attachToHookStopwatch = new Stopwatch();
+            }
+            if (GamePad.GetState(PlayerIndex.One).Buttons.B == ButtonState.Pressed && closeCamStopwatch.ElapsedMilliseconds > 1000)
+            {
+                isCloseCam = isCloseCam ? false : true;
+                if (!isCloseCam)
+                    Game.Player.Character.Heading = baseCrane.Heading;
+                closeCamStopwatch = new Stopwatch();
+            }
+            var cableZ = baseCrane.GetOffsetInWorldCoords(new Vector3(0, 0, 45.7f)).Z;
+            var cable1 = armHook.GetOffsetInWorldCoords(new Vector3(0, 0f, 0f));
+            var cable2 = armHook.GetOffsetInWorldCoords(new Vector3(-0.9f, 0f, 0f));
+            var cable3 = armHook.GetOffsetInWorldCoords(new Vector3(0.9f, 0f, 0f));
+            Function.Call((Hash)0x6B7256074AE34680, cable1.X, cable1.Y, cableZ, cable1.X, cable1.Y, cable1.Z, 0, 0, 0, 255);
+            Function.Call((Hash)0x6B7256074AE34680, cable2.X, cable2.Y, cableZ, cable2.X, cable2.Y, cable2.Z, 0, 0, 0, 255);
+            Function.Call((Hash)0x6B7256074AE34680, cable3.X, cable3.Y, cableZ, cable3.X, cable3.Y, cable3.Z, 0, 0, 0, 255);
+            //draw helper for arm hook 
+            Function.Call((Hash)0x6B7256074AE34680, armHook.Position.X, armHook.Position.Y, armHook.Position.Z - 7f, armHook.Position.X, armHook.Position.Y, 0, 255, 5, 5, 255);
+            if (isMovingBaseCraneAudio && !isCraneAudioSet)
+            {
+                isCraneAudioSet = true;
+                Function.Call((Hash)0xE65F427EB70AB1ED, 81, "dryer", armHookFake, "CARWASH_SOUNDS", 0, 0);
+                Function.Call((Hash)0xE65F427EB70AB1ED, 82, "dryer", armHookFake, "CARWASH_SOUNDS", 0, 0);
+                Function.Call((Hash)0xE65F427EB70AB1ED, 83, "dryer", armHookFake, "CARWASH_SOUNDS", 0, 0);
+            }
+            if (!isMovingBaseCraneAudio && isCraneAudioSet)
+            {
+                isCraneAudioSet = false;
+                Function.Call((Hash)0xE65F427EB70AB1ED, 81, "Prop_Drop_Water", armHookFake, "DLC_Dmod_Prop_Editor_Sounds", 0, 0);
+                Function.Call((Hash)0xE65F427EB70AB1ED, 82, "Prop_Drop_Water", armHookFake, "DLC_Dmod_Prop_Editor_Sounds", 0, 0);
+                Function.Call((Hash)0xE65F427EB70AB1ED, 83, "Prop_Drop_Water", armHookFake, "DLC_Dmod_Prop_Editor_Sounds", 0, 0);
+            }
+            if (isArmHookAudio && !isArmAudioSet)
+            {
+                isArmAudioSet = true;
+                Function.Call((Hash)0xE65F427EB70AB1ED, 84, "dryer", armHookFake, "CARWASH_SOUNDS", 0, 0);
+            }
+            if (!isArmHookAudio && isArmAudioSet)
+            {
+                isArmAudioSet = false;
+                Function.Call((Hash)0xE65F427EB70AB1ED, 84, "Prop_Drop_Water", armHookFake, "DLC_Dmod_Prop_Editor_Sounds", 0, 0);
+            }
+
+            /* try  
+             {
+                 if (Game.IsControlJustPressed(0, GTA.Control.SelectWeapon) && Game.Player.Character.CurrentVehicle == null)
+                 {
+                     isControllingCrane = isControllingCrane ? false : true;
+                     if (isControllingCrane)
+                     {
+                         if (movableBasket == null)
+                         {
+                             movableBasket = World.CreateProp(new Model(1158960338), basket.Position, basket.Rotation, false, false);
+                         }
+                     }
+                     else
+                     {
+                         Game.Player.Character.FreezePosition = false;
+                     }
+                 }
+                 if (isControllingCrane)
+                 {
+                     Game.Player.Character.FreezePosition = true;
+                     var z = movableBasket.Position.Z;
+                     if (GamePad.GetState(PlayerIndex.One).Buttons.A == ButtonState.Pressed)
+                     {
+                         z += 0.01f;
+                     }
+                     else if (GamePad.GetState(PlayerIndex.One).Buttons.B == ButtonState.Pressed)
+                     {
+                         z -= 0.01f;
+                     }
+                     if (GamePad.GetState(PlayerIndex.One).Triggers.Left > 0)
+                     {
+                         movableBasket.Rotation = new Vector3(movableBasket.Rotation.X, movableBasket.Rotation.Y, movableBasket.Rotation.Z + 0.25f);
+                         Game.Player.Character.Rotation = new Vector3(Game.Player.Character.Rotation.X, Game.Player.Character.Rotation.Y, movableBasket.Rotation.Z);
+                     }
+                     if (GamePad.GetState(PlayerIndex.One).Triggers.Right > 0)
+                     {
+                         movableBasket.Rotation = new Vector3(movableBasket.Rotation.X, movableBasket.Rotation.Y, movableBasket.Rotation.Z - 0.25f);
+                         Game.Player.Character.Rotation = new Vector3(Game.Player.Character.Rotation.X, Game.Player.Character.Rotation.Y, movableBasket.Rotation.Z);
+                     }
+                     if (GamePad.GetState(PlayerIndex.One).ThumbSticks.Left.X != 0 || GamePad.GetState(PlayerIndex.One).ThumbSticks.Left.Y != 0 || GamePad.GetState(PlayerIndex.One).Buttons.B == ButtonState.Pressed || GamePad.GetState(PlayerIndex.One).Buttons.A == ButtonState.Pressed)
+                     {
+                         var off = movableBasket.GetOffsetInWorldCoords(new Vector3((GamePad.GetState(PlayerIndex.One).ThumbSticks.Left.Y / 100), (GamePad.GetState(PlayerIndex.One).ThumbSticks.Left.X * 2), 0));
+                         movableBasket.Position = new Vector3(off.X, off.Y, z);
+                         Game.Player.Character.Position = movableBasket.Position;
+                     }
+                     if (movableBasket.Position.Z < basket.Position.Z)
+                     {
+                         movableBasket.Delete();
+                         movableBasket = null;
+                         isControllingCrane = false;
+                     }
+                 }
+                 else
+                 {
+                     Game.Player.Character.FreezePosition = false;
+                     if (isTruckMode)
+                     {
+                         if(Game.Player.Character.CurrentVehicle != null)
+                         {
+                             if (Game.IsControlJustPressed(0, GTA.Control.SelectWeapon) && Game.Player.Character.CurrentVehicle.DisplayName == baseVeh.DisplayName && truckTrailer.Position.DistanceTo(baseVeh.Position) < 5)
+                             {
+                                 if (isCraneAttachedToTrailer) 
+                                 {
+                                     isCraneAttachedToTrailer = false;
+                                     baseVeh.Detach();
+                                 }
+                                 else
+                                 {
+                                     craneExitStopwatch.Start();
+                                     isCraneAttachedToTrailer = true;
+                                 }
+
+                             }
+                         }
+                     }
+                 }
+                 if (isCraneAttachedToTrailer && isTruckMode)
+                 {
+                     basket.HasCollision = false;
+                     basket.AttachTo(baseVeh, 0, new Vector3(1.3f, 5.3f, 1f), new Vector3(-89.99978f, 4.935332E-06f, 90f));
+                     baseVeh.AttachTo(truckTrailer, 0, new Vector3(0, 1.1f, 0.7f), new Vector3(0, 0, 180f));
+                     if (GamePad.GetState(PlayerIndex.One).Buttons.Y == ButtonState.Pressed && Game.Player.Character.Position.DistanceTo(baseVeh.Position) <= 3 && (craneExitStopwatch.ElapsedMilliseconds > 6000 || !craneExitStopwatch.IsRunning))
+                     {
+                         isCraneAttachedToTrailer = false;
+                         craneExitStopwatch = new Stopwatch();
+                         baseVeh.Detach();
+                     }
+                 }
+                 else
+                 {
+                     if (basket != null)
+                     {
+                         basket.HasCollision = true;
+                         basket.AttachTo(baseVeh, 0, new Vector3(1.3f, 5.3f, 1f), new Vector3(-89.99978f, 4.935332E-06f, 90f));
+                     }
+                 }
+             }
+             catch(Exception e)
+             {
+                 UI.ShowSubtitle(e.Message);
+             }
+            */
+        }
+
+        public static void SpawnCrane()
+        {
+            //Function.Call((Hash)0xFEDB7D269E8C60E3, );
+            baseCrane = World.CreateProp(new Model(60858040), Game.Player.Character.GetOffsetInWorldCoords(new Vector3(0, 7, 0)), false, true);
+            baseCrane.IsCollisionProof = true;
+            baseCrane.Heading = Game.Player.Character.Heading;
+            armHook = World.CreateProp(new Model(-2128680992), baseCrane.Position, false, false);
+            armHook.AttachTo(baseCrane, 0, new Vector3(armX, armY, armZ), new Vector3(0, 0, armRot));
+            armHookFake = World.CreateProp(new Model(-2128680992), baseCrane.Position, false, false);
+            armHookFake.AttachTo(baseCrane, 0, new Vector3(-3f, -6, 44f), new Vector3(0, 0, 0));
+            armHookFake.Alpha = 0;
+            enterCraneOffset = baseCrane.GetOffsetInWorldCoords(new Vector3(1f, -2, 43f));
+
+
+
+
+
+
+
+
+            /*lf = World.CreateProp(new Model(-890463279), baseVeh.Position, false, false);
+            lr = World.CreateProp(new Model(-890463279), baseVeh.Position, false, false);
+            rf = World.CreateProp(new Model(-890463279), baseVeh.Position, false, false);
+            rr = World.CreateProp(new Model(-890463279), baseVeh.Position, false, false);
+            lf.AttachTo(baseVeh, 0, new Vector3(-0.85f, 1.1f, 0.05f), new Vector3(0, 0, 0));
+            lr.AttachTo(baseVeh, 0, new Vector3(-0.85f, -1.2f, 0.05f), new Vector3(0, 0, 0)); 
+            rf.AttachTo(baseVeh, 0, new Vector3(0.85f, 1.1f, 0.05f), new Vector3(0, 0, 180));
+            rr.AttachTo(baseVeh, 0, new Vector3(0.85f, -1.2f, 0.05f), new Vector3(0, 0, 180));
+            basket = World.CreateProp(new Model(1158960338), baseVeh.Position, new Vector3(-89.99978f, 4.935332E-06f, 1.000003f), false, false);
+            basket.AttachTo(baseVeh, 0, new Vector3(1.3f, 5.3f, 1f), new Vector3(-89.99978f, 4.935332E-06f, 90f));
+            basket.HasCollision = true;
+            body1 = World.CreateProp(new Model(1366469466), baseVeh.Position, false, false);
+            body2 = World.CreateProp(new Model(1366469466), baseVeh.Position, false, false);
+            body1.AttachTo(baseVeh, 0, new Vector3(0.02f, 0.5f, -0.3f), new Vector3(0, 0, -90f));
+            body2.AttachTo(baseVeh, 0, new Vector3(0.0f, -0.7f, -0.31f), new Vector3(0, 0, -90f));
+            crane1 = World.CreateProp(new Model(173177608), baseVeh.Position, false, false);
+            crane2 = World.CreateProp(new Model(173177608), baseVeh.Position, false, false);
+            crane3 = World.CreateProp(new Model(173177608), baseVeh.Position, false, false);
+            crane4 = World.CreateProp(new Model(173177608), baseVeh.Position, false, false);
+            crane1.AttachTo(baseVeh, 0, new Vector3(0.0f, 4.7f, 0.1f), new Vector3(0f, -94f, 90f));
+            crane2.AttachTo(baseVeh, 0, new Vector3(0.0f, 1.1f, 0.7f), new Vector3(0.0f, -94f, 270f));
+            crane3.AttachTo(baseVeh, 0, new Vector3(0.0f, 4.7f, 1.2f), new Vector3(0f, -94f, 90f));
+            crane4.AttachTo(baseVeh, 0, new Vector3(0.0f, 1.1f, 1.7f), new Vector3(0.0f, -94f, 270f));*/
+
+        }
+        public static Vector3 RotationToDirection(Vector3 Rotation) { float z = Rotation.Z; float num = z * 0.0174532924f; float x = Rotation.X; float num2 = x * 0.0174532924f; float num3 = Math.Abs((float)Math.Cos((double)num2)); return new Vector3 { X = (float)((double)((float)(-(float)Math.Sin((double)num))) * (double)num3), Y = (float)((double)((float)Math.Cos((double)num)) * (double)num3), Z = (float)Math.Sin((double)num2) }; }
+
+    }
+}

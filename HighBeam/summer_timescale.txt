@@ -1,0 +1,97 @@
+﻿  public void TimeScale()
+        {
+            Game.PauseClock(true);
+            if (!timeScaleStopwatch.IsRunning)
+            {
+                timeScaleStopwatch.Start();
+            }
+            if (!progressTimeStopwatch.IsRunning)
+            {
+                progressTimeStopwatch.Start();
+            }
+            var isSlowTime = timeScale > 2f;
+            if (timeScaleStopwatch.ElapsedMilliseconds > (((1000 * timeScale)) / 60))
+            {
+                if (fastForwardTime)
+                {
+                    fakeTimeSeconds += 60;
+                    if (fakeTimeHours < 12 || fakeTimeHours > 15 || true)
+                        Function.Call(Hash.ADD_TO_CLOCK_TIME, 0, 0, fakeTimeMinutes % 2 == 0 ? 60 : 60);
+                }
+                else
+                {
+                    fakeTimeSeconds += 1;
+                    if (fakeTimeHours < 12 || fakeTimeHours > 15 || true)
+                        Function.Call(Hash.ADD_TO_CLOCK_TIME, 0, 0, fakeTimeMinutes % 2 == 0 ? 1 : 1);
+                }
+                if (fakeTimeSeconds > 59)
+                {
+                    fakeTimeSeconds = 0;
+                    fakeTimeMinutes += 1;
+                }
+                if (fakeTimeMinutes > 59)
+                {
+                    fakeTimeMinutes = 0;
+                    fakeTimeHours += 1;
+                }
+                if (fakeTimeHours > 23)
+                {
+                    fakeTimeHours = 0;
+                }
+                timeScaleStopwatch = new Stopwatch();
+                string[] fth = { fakeTimeHours.ToString() };
+                System.IO.File.WriteAllLines(@"D:\Steam\steamapps\common\Grand Theft Auto V\scripts\current_time.txt", fth);
+            }
+            if (
+                    ((fakeTimeHours >= sunriseTime.Hour - 1 && fakeTimeMinutes >= sunriseTime.Minute) || fakeTimeHours > sunriseTime.Hour - 1)
+                    &&
+                    ((fakeTimeHours <= sunsetTime.Hour + 2 && fakeTimeMinutes <= sunsetTime.Minute) || fakeTimeHours < sunsetTime.Hour + 2)
+                    )
+            {
+                if (!sunriseInit)
+                {
+                    sunriseInit = true;
+                    World.CurrentDayTime = new TimeSpan(inGameFixedSunrise.Hour, inGameFixedSunrise.Minute, 0);
+                }
+                if (!sunriseAtGameStart)
+                {
+                    sunriseAtGameStart = true;
+                    inGameFixedSunrise = new DateTime(2020, 1, 1, 4, 00, 0);
+                }
+                /*
+                if (fastForwardTime)
+                {
+                    Function.Call(Hash.ADD_TO_CLOCK_TIME, 0, 0, 10);
+                }
+                else
+                {
+                    if (isSlowTime)
+                        Function.Call(Hash.ADD_TO_CLOCK_TIME, 0, 1, 0);
+                    else
+                        Function.Call(Hash.ADD_TO_CLOCK_TIME, 0, 0, 1);
+                }*/
+            }
+            else
+            {
+                World.CurrentDate = new DateTime(2020, 5, 10, 0, 0, 0);
+                sunriseInit = false;
+            }
+            var diff = ((UnixTimestampFromDateTime(sunsetTime) - UnixTimestampFromDateTime(sunriseTime)) / (60));
+            if (progressTimeStopwatch.ElapsedMilliseconds > 2000 && !isSlowTime)
+            {
+                var addSec = 1;
+
+                progressTimeStopwatch = new Stopwatch();
+            }
+            if (Game.IsControlJustPressed(0, GTA.Control.PhoneUp))
+            {
+                if ((!Game.Player.Character.IsInVehicle() && !isCraneMode) || (isCraneMode && Game.Player.Character.IsInVehicle(veh)))
+                {
+                    fastForwardTime = !fastForwardTime;
+                }
+            }
+            if (fastForwardTime)
+                UI.ShowSubtitle("Fast Forwarding time ");
+            // World.CurrentDate = new DateTime(2020, 1, 2, 7, 0, 0);
+            // UI.ShowSubtitle(fakeTimeHours.ToString() + ":" + (fakeTimeMinutes > 9 ? "" : "0") + fakeTimeMinutes.ToString() + ":" + (fakeTimeSeconds > 9 ? "" : "0") + fakeTimeSeconds.ToString() + " " + diff.ToString());
+        }
