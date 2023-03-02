@@ -43,8 +43,9 @@ using static HighBeam.ContainerHandler;
 using static HighBeam.Terminal;
 using static HighBeam.ElectricEngine;
 using static HighBeam.Plane;
-using static HighBeam.Rtg; 
+using static HighBeam.Rtg;
 using static HighBeam.Showroom;
+using static HighBeam.Hotel;
 
 namespace HighBeam
 {
@@ -171,7 +172,7 @@ namespace HighBeam
         public float lastSteeringAngle = 0;
         public float steeringAngle = 0;
         public float tailgateAngle = 0;
-        public bool isReversing = false;
+        public static bool isReversing = false;
         public Vector3 lastVehPos = new Vector3(999999999999, 0, 0);
         public Vehicle fakePolice = null;
         public Ped fakePoliceDriver = null;
@@ -206,7 +207,8 @@ namespace HighBeam
         public static float trafficJamSpeed = 19;
         public static bool inits = false;
         public static float timeScale = 2f;
-        public static float defaultTimeScale = 2f;
+        //public static float defaultTimeScale = 2f;
+        public static float defaultTimeScale = 4f;
         public static Stopwatch timeScaleStopwatch = new Stopwatch();
         public static bool isClockPaused = false;
         public static bool isBoostMode = false;
@@ -313,6 +315,7 @@ namespace HighBeam
         public static bool isSportMode = false;
         private bool veryFirstInit = false;
         private Stopwatch veryFirstInitStopwatch = new Stopwatch();
+        private bool areAnalogGauges = false;
 
         // asd
         public Main()
@@ -327,7 +330,7 @@ namespace HighBeam
             public Vector3 First { get; set; }
             public Vector3 Second { get; set; }
         }
-        private Vector3 initPos = new Vector3(); 
+        private Vector3 initPos = new Vector3();
         private void onTick(object sender, EventArgs e)
         {
             if (!veryFirstInitStopwatch.IsRunning)
@@ -341,8 +344,8 @@ namespace HighBeam
             {
                 try
                 {
-                      //   UI.ShowSubtitle(Game.Player.Character.Position.X + "  " + Game.Player.Character.Position.Y + " " + Game.Player.Character.Position.Z + " " + Game.Player.Character.Heading.ToString());
-                    //Game.Player.Character.Position = new Vector3(4219.2f, -2367.1f, 19f);
+                    //   UI.ShowSubtitle(Game.Player.Character.Position.X + "  " + Game.Player.Character.Position.Y + " " + Game.Player.Character.Position.Z + " " + Game.Player.Character.Heading.ToString());
+
                     // Game.Player.Character.FreezePosition = true;
                     var prevVeh = veh;
                     veh = Game.Player.LastVehicle;
@@ -350,6 +353,8 @@ namespace HighBeam
                     isInPlane = veh.ClassType == VehicleClass.Planes;
 
                     Function.Call((Hash)0x84FD40F56075E816, 0);
+
+                    //  UI.ShowSubtitle(veh.Position.DistanceTo(initPos).ToString());
 
                     if ((veh.IsDamaged || veh.BodyHealth < 1000) && !isAqua)
                     {
@@ -382,16 +387,24 @@ namespace HighBeam
                         isActiveExhaustActivated = false;
                         isSportMode = false;
                         VwHubcaps();
-                        DucatoFridge();
+                        var n = veh.DisplayName.ToLower();
+                        areAnalogGauges = n.Contains("pstgte");
+
+                        if (areAnalogGauges)
+                        {
+                            gaugeType = n.Contains("pstgte") ? "vwbus" : "";
+                        }
+
+                        // DucatoFridge();
 
                         if (veh.DisplayName.Contains("oycre"))
                         {
                             veh.RoofState = VehicleRoofState.Closed;
                         }
                     }
-                    if (!veh.DisplayName.ToLower().Contains("porcaygt"))
-                        veh.DashboardColor = VehicleColor.EpsilonBlue; // for warehouse to not delete player cars
-                    Weather();
+                    //  if (!veh.DisplayName.ToLower().Contains("porcaygt"))
+                    //  veh.DashboardColor = VehicleColor.EpsilonBlue; // for warehouse to not delete player cars
+                    DynamicWeather();
                     TimeScale();
 
                     if (isTruckMode)
@@ -404,7 +417,7 @@ namespace HighBeam
                         UpdateSpeed();
                         if ((isReversing && fakeSpeed < 10) || (isParkingMode))
                         {
-                          
+
                         }
                         else
                         {
@@ -491,16 +504,13 @@ namespace HighBeam
                         Hood();
                         DrivingModes();
                         ElEngine();
+                        GaugeSelect();
                         //   RoadSurfaceVibrations();
                         ParkingSensors();
                         Fireflies();
                         //   if (!veh.DisplayName.ToLower().Contains("exped"))
                         //    RunUber();
-                        if (isReversing && fakeSpeed > 5)
-                        {
 
-                            veh.ApplyForceRelative(new Vector3(0, 0.3f, 0f));
-                        }
 
                     }
                     else
@@ -535,13 +545,17 @@ namespace HighBeam
                     // for debug 
                     //HighwayTrafficOld.RunHighwayTraffic();
                     // HighwayTraffic.RunTestTraffic();
-                    Odometer();
+                    //   Odometer();
+                    if (areAnalogGauges)
+                        OvalGauge();
+                    else
+                        Odometer();
                     RunHouse();
-                    AirSuspension();
+                   // AirSuspension();
                     RunNyAparment();
                     RenderS7();
                     RunBusControls();
-                   //   RunWarehouse();
+                    //   RunWarehouse();
                     //    RunNyWarehouse();
                     RunNyShop();
                     RunContainerWarehouse();
@@ -564,7 +578,8 @@ namespace HighBeam
                     //  RunRtg();
                     DashCam();
                     RunShowroom();
-                   // Dyno();
+                    RunHotel();
+                    // Dyno();
                     //  RunTerminal();
                     //LibertyCityPedControl();
                     // veh.LightsOn = false;
@@ -598,7 +613,33 @@ namespace HighBeam
         }
 
 
+
+
         // functions
+
+        private void GaugeSelect()
+        {
+            if(Game.IsControlJustPressed(0, GTA.Control.ScriptPadDown))
+            {
+                if (areAnalogGauges && gaugeType == "vwbus")
+                {
+                    areAnalogGauges = false;
+                    gaugeType = "";
+                }
+                else if (areAnalogGauges && gaugeType == "")
+                {
+                    gaugeType = "vwbus";
+                }
+                else if (!areAnalogGauges)
+                {
+                    areAnalogGauges = true;
+                    gaugeType = "";
+                }
+            }
+            gaugeType = "";
+            areAnalogGauges = true;
+        }
+
         private Prop dyno = null;
         private void Dyno()
         {
@@ -611,9 +652,9 @@ namespace HighBeam
 
             {
 
-                Function.Call(Hash.APPLY_FORCE_TO_ENTITY, dyno, 3, 0f, 0f, 10.0f, 0f,0f,0f, 0, false, true, true, false, true);
+                Function.Call(Hash.APPLY_FORCE_TO_ENTITY, dyno, 3, 0f, 0f, 10.0f, 0f, 0f, 0f, 0, false, true, true, false, true);
 
-               
+
             }
         }
 
@@ -791,6 +832,48 @@ namespace HighBeam
                     Vector3 rotation = new Vector3();
                     if (bone == "wheel_lf")
                     {
+                        offset = new Vector3(-0.13f, 0, 0);
+                        rotation = new Vector3(0f, 0f, 270f);
+                    }
+                    if (bone == "wheel_rf")
+                    {
+                        offset = new Vector3(-0.13f, 0, 0);
+                        rotation = new Vector3(0f, 0f, 270f);
+                    }
+                    if (bone == "wheel_lr")
+                    {
+                        offset = new Vector3(-0.13f, 0, 0);
+                        rotation = new Vector3(0f, 0f, 270f);
+                    }
+                    if (bone == "wheel_rr")
+                    {
+                        offset = new Vector3(-0.13f, 0, 0);
+                        rotation = new Vector3(0f, 0f, 270f);
+                    }
+                    var prop = World.CreateProp(new Model(-1286728675), new Vector3(), false, false);
+                    prop.AttachTo(veh, veh.GetBoneIndex(bone), offset, rotation);
+                    vwCaps.Add(prop);
+                }
+            }
+            if (!veh.DisplayName.ToLower().Contains("pstgte") && areCapsAttached)
+            {
+                areCapsAttached = false;
+                vwCaps.ForEach(cap => cap.Delete());
+                vwCaps = new List<Prop>();
+            }
+
+        }
+
+        /* OLD HUBCAPS KETTLE
+           if (!areCapsAttached && veh.DisplayName.ToLower().Contains("pstgte"))
+            {
+                areCapsAttached = true;
+                foreach (var bone in vwBones)
+                {
+                    Vector3 offset = new Vector3();
+                    Vector3 rotation = new Vector3();
+                    if (bone == "wheel_lf")
+                    {
                         offset = new Vector3(0.2f, 0, 0);
                         rotation = new Vector3(0f, 90f, 180f);
                     }
@@ -814,13 +897,8 @@ namespace HighBeam
                     vwCaps.Add(prop);
                 }
             }
-            if (!veh.DisplayName.ToLower().Contains("pstgte") && areCapsAttached)
-            {
-                areCapsAttached = false;
-                vwCaps.ForEach(cap => cap.Delete());
-                vwCaps = new List<Prop>();
-            }
-        }
+         
+         */
 
         private List<Vector3> electricPoints = new List<Vector3>();
         private void Electrician()
@@ -938,7 +1016,7 @@ namespace HighBeam
                 parkingSensorCalcStopwatch = new Stopwatch();
             }
 
-            if (isParkingGear)
+            if (isParkingGear || !isParkingMode)
             {
                 PSfrontHigh = false;
                 PSfrontLow = false;
@@ -1263,7 +1341,7 @@ namespace HighBeam
                     }
                 }
             }
-            if (fakeSpeed > 2 && fakeSpeed < 13)
+            if (fakeSpeed > 2 && fakeSpeed < 10)
             {
                 Game.DisableControlThisFrame(0, GTA.Control.VehicleHandbrake);
                 if (Game.IsControlJustPressed(0, GTA.Control.VehicleHandbrake))
@@ -1273,10 +1351,22 @@ namespace HighBeam
                 }
             }
 
-            if (drivingMode == "parking")
+            if (drivingMode == "parking" || isReversing)
             {
                 veh.EnginePowerMultiplier = 0.2f;
                 veh.EngineTorqueMultiplier = 0.2f;
+            }
+
+            if (isReversing && !isParkingMode)
+            {
+                drivingMode = "parking";
+                isParkingMode = true;
+            }
+
+            if (!isReversing && fakeSpeed > 5 && drivingMode == "parking")
+            {
+                drivingMode = null;
+                isParkingMode = false;
             }
         }
 
@@ -1345,7 +1435,8 @@ namespace HighBeam
                     //  decimal b = (decimal)((decimal)fakeSpeed / (decimal)13.7f);
                     // UI.ShowSubtitle(b.ToString());
                     veh.ApplyForceRelative(new Vector3(0, 0.06f, 0));
-                }else if(fakeSpeed > 200)
+                }
+                else if (fakeSpeed > 200)
                 {
                     if (fakeSpeed > 305)
                     {
@@ -1356,7 +1447,7 @@ namespace HighBeam
                         veh.ApplyForceRelative(new Vector3(0, 0.005f, 0));
                     }
                 }
-               
+
             }
         }
 
@@ -1377,7 +1468,6 @@ namespace HighBeam
           // new Exhaust(){VehName = "63", Original = "windsor", Active = "m113k"},
            new Exhaust(){VehName = "panamer", Original = "dominator", Active = "m113k"},
             new Exhaust(){VehName = "mlbrab", Original = "dominator", Active = "m113k"},
-            new Exhaust(){VehName = "s63", Original = "windsor", Active = "m113k"},
         };
 
         private void ActiveExhaust()
@@ -1437,8 +1527,8 @@ namespace HighBeam
                     {
                         //  windMult = windMult >= 0.007 ? 0.007 : windMult;
                     }
-                    if (isRaining)
-                        windMult += 0.009;
+                    //   if (isRaining)
+                    //     windMult += 0.009;
 
                     if (GamePad.GetState(PlayerIndex.One).Triggers.Left > 0.6)
                     {
@@ -1450,25 +1540,29 @@ namespace HighBeam
                         windMult += 0.008;
                         if (GamePad.GetState(PlayerIndex.One).Triggers.Left > 0.6)
                         {
-                            windMult += 0.037f;
+                            windMult += 0.02f;
                         }
                     }
-                    if (brakeStopwatch.ElapsedMilliseconds % 200 < 100)
+                    if (false)
                     {
-                        GamePad.SetVibration(PlayerIndex.One, 1f, 1f);
+                        if (brakeStopwatch.ElapsedMilliseconds % 200 < 100)
+                        {
+                            GamePad.SetVibration(PlayerIndex.One, 1f, 1f);
+                        }
+                        else
+                        {
+                            GamePad.SetVibration(PlayerIndex.One, 0f, 0f);
+                        }
                     }
-                    else
-                    {
-                        GamePad.SetVibration(PlayerIndex.One, 0f, 0f);
-                    }
+
                     windMult = windMult / 2;
                     if (steeringAngle == 0)
-                        Function.Call((Hash)0x42A8EC77D5150CBE, Game.Player.LastVehicle, (brakeStopwatch.ElapsedMilliseconds % 1000 > 500 ? steeringAngle - windMult : steeringAngle + windMult));
+                        Function.Call((Hash)0x42A8EC77D5150CBE, Game.Player.LastVehicle, (steeringAngle - windMult));
                 }
                 if ((GamePad.GetState(PlayerIndex.One).Triggers.Left < 0.1 || fakeSpeed < 30) && brakeStopwatch.IsRunning)
                 {
                     brakeStopwatch = new Stopwatch();
-                    GamePad.SetVibration(PlayerIndex.One, 0f, 0f);
+                    // GamePad.SetVibration(PlayerIndex.One, 0f, 0f);
                 }
 
             }
@@ -1636,32 +1730,219 @@ namespace HighBeam
                 }
             }
         }
+        public static List<string> weatherTypes = new List<string> { "DYNAMIC.THUNDER", "DYNAMIC.EXTRASUNNY", "DYNAMIC.OVERCASTDAY", "DYNAMIC.FOGGY" };
+        public static bool isDynamicWeather = false;
+        public static string dynamicWeatherName = null;
+        public static Random dynamicWeatherRnd = new Random();
+        public static int dynamicTimeToWeatherTransition = 0;
+        public static int dynamicWeatherDuration = 0;
+        public static Weather previousWeatherBeforeDynamic;
+        public static Stopwatch dynamicWeatherElapsedTimeStopwatch = new Stopwatch();
+        public static bool isDynamicWeatherSet = false;
+        private void DynamicWeather()
+        {
+            if ((Game.IsControlJustPressed(0, GTA.Control.ScriptPadLeft) && !Game.Player.Character.IsInVehicle(veh)) || (Game.Player.Character.IsInVehicle() && Game.IsControlJustPressed(0, GTA.Control.ScriptPadUp) && !isCruiseControlActive))
+            {
+                if (currentWeatherId >= weatherTypes.Count)
+                {
+                    currentWeatherId = 0;
+                    isDynamicWeather = false;
+                }
+                if (currentWeatherId < weatherTypes.Count)
+                {
+                    isDynamicWeather = weatherTypes[currentWeatherId].Contains("DYNAMIC");
+                    UI.ShowSubtitle(weatherTypes[currentWeatherId]);
+                }
 
-        public static List<string> weatherTypes = new List<string> { "FOGGY", "THUNDER", "RAIN", "RAIN", "THUNDER", "THUNDER" };
+                if (isDynamicWeather)
+                {
+                    dynamicWeatherName = weatherTypes[currentWeatherId].Split('.').ToArray()[1];
+                    // dynamicTimeToWeatherTransition = dynamicWeatherRnd.Next(20, 30);
+                    //  dynamicWeatherDuration = dynamicWeatherRnd.Next(20000, 40000);
+                    dynamicTimeToWeatherTransition = dynamicWeatherRnd.Next(900, 1200);
+                    dynamicWeatherDuration = dynamicWeatherRnd.Next(400000, 400500);
+                    previousWeatherBeforeDynamic = World.Weather;
+                    var weatherEnum = WeatherNameToEnum(dynamicWeatherName);
+                    isDynamicWeatherSet = false;
+                    dynamicWeatherElapsedTimeStopwatch = new Stopwatch();
+                    currentRainAmount = 0;
+                    World.TransitionToWeather(weatherEnum, dynamicTimeToWeatherTransition);
+
+                    if (weatherEnum == World.Weather)
+                    {
+                        previousWeatherBeforeDynamic = GTA.Weather.Halloween;
+                    }
+
+                }
+
+                currentWeatherId += 1;
+
+            }
+
+            if (isDynamicWeather)
+            {
+                if (previousWeatherBeforeDynamic != World.Weather && !isDynamicWeatherSet)
+                {
+                    isDynamicWeatherSet = true;
+                    dynamicWeatherElapsedTimeStopwatch.Start();
+                }
+                if (isDynamicWeatherSet)
+                {
+                    if (dynamicWeatherName == "THUNDER")
+                        ThunderScheme();
+                    if (dynamicWeatherName == "EXTRASUNNY")
+                    {
+                        Function.Call((Hash)0x11B56FBBF7224868, "horsey");
+                        Function.Call((Hash)0xFC4842A34657BFCB, "horsey", dynamicTimeToWeatherTransition);
+                    }
+                    if (dynamicWeatherName == "OVERCASTDAY")
+                    {
+                        Function.Call((Hash)0x11B56FBBF7224868, "RAIN");
+                        Function.Call((Hash)0xFC4842A34657BFCB, "RAIN", dynamicTimeToWeatherTransition);
+                    }
+                    if (dynamicWeatherName == "FOGGY")
+                    {
+                        Function.Call((Hash)0x11B56FBBF7224868, "RAIN");
+                        Function.Call((Hash)0xFC4842A34657BFCB, "RAIN", dynamicTimeToWeatherTransition);
+                    }
+                }
+            }
+            // standard weather manipulation
+            if (true)
+            {
+                Function.Call((Hash)0x643E26EA6E024D92, currentRainAmount);
+                isRaining = currentRainAmount > 0.3f;
+                var ped = Game.Player.Character;
+                RaycastResult ray;
+                if (Game.Player.Character.IsInVehicle())
+                {
+                    ray = World.Raycast(veh.GetOffsetInWorldCoords(new Vector3(0, 0, 3)), veh.GetOffsetInWorldCoords(new Vector3(0, 0, 20)), IntersectOptions.Everything, veh);
+                }
+                else
+                {
+                    ray = World.Raycast(ped.GetOffsetInWorldCoords(new Vector3(0, 0, 0.4f)), veh.GetOffsetInWorldCoords(new Vector3(0, 0, 20)), IntersectOptions.Everything, ped);
+                }
+                var celing = ray.DitHitAnything;
+                if (hasCelingAbove && !celing)
+                {
+                    Function.Call((Hash)0x643E26EA6E024D92, currentRainAmount);
+                }
+                if (!hasCelingAbove && celing)
+                {
+                    currentRainAmount = Function.Call<float>((Hash)0x96695E368AD855F3);
+                    Function.Call((Hash)0x643E26EA6E024D92, 0f);
+                }
+                hasCelingAbove = celing;
+                // waves height
+                Function.Call((Hash)0xB96B00E976BE977F, 0f);
+            }
+        }
+
+        private bool endTransition = false;
+        private void ThunderScheme()
+        {
+            float perc = ((float)dynamicWeatherElapsedTimeStopwatch.ElapsedMilliseconds / (float)dynamicWeatherDuration) * 100;
+
+            if (perc > 100f)
+            {
+                isDynamicWeather = false;
+                isDynamicWeatherSet = false;
+                dynamicWeatherElapsedTimeStopwatch = new Stopwatch();
+            }
+            if (perc > 85f)
+            {
+                if (!endTransition)
+                {
+                    World.TransitionToWeather(GTA.Weather.ExtraSunny, dynamicTimeToWeatherTransition);
+                    Function.Call((Hash)0x11B56FBBF7224868, "horsey");
+                    Function.Call((Hash)0xFC4842A34657BFCB, "horsey", dynamicTimeToWeatherTransition);
+                    endTransition = true;
+                }
+
+                currentRainAmount = 0.88f - (perc * 0.01f);
+                if (currentRainAmount < 0)
+                    currentRainAmount = 0;
+            }
+            if (perc > 70f)
+            {
+                currentRainAmount = 0.88f - (perc * 0.01f);
+                if (currentRainAmount < 0)
+                    currentRainAmount = 0;
+            }
+            else if (perc > 26f)
+            {
+                currentRainAmount = 1f;
+            }
+            else if (perc > 8f)
+            {
+                currentRainAmount = perc * 0.01f;
+            }
+            else if (perc < 1f)
+            {
+                Function.Call((Hash)0x11B56FBBF7224868, "RAIN");
+                Function.Call((Hash)0xFC4842A34657BFCB, "RAIN", 1f);
+            }
+            else
+            {
+                currentRainAmount = 0;
+            }
+        }
+
+        private GTA.Weather WeatherNameToEnum(string name)
+        {
+            if (name == "THUNDER")
+            {
+                return GTA.Weather.ThunderStorm;
+            }
+            if (name == "EXTRASUNNY")
+            {
+                return GTA.Weather.ExtraSunny;
+            }
+            if (name == "OVERCASTDAY")
+            {
+                return GTA.Weather.ThunderStorm;
+            }
+            if (name == "FOGGY")
+            {
+                return GTA.Weather.Foggy;
+            }
+            return GTA.Weather.ExtraSunny;
+        }
+
         private float currentRainAmount = 0f;
         private bool hasCelingAbove = false;
         public void Weather()
         {
             isRaining = Function.Call<float>((Hash)0x96695E368AD855F3) > 0.3f;
-            if (currentWeatherId % 2 == 0 && currentWeatherId != 0 && isESPActive && currentRainAmount > 0.3)
+            /*  if (currentWeatherId % 2 == 0 && currentWeatherId != 0 && isESPActive && currentRainAmount > 0.3)
+              {
+                  if (fakeSpeed > 20)
+                      veh.EngineTorqueMultiplier = 0.8f;
+                  if (fakeSpeed > 100)
+                      veh.EngineTorqueMultiplier = 0.67f;
+                  if (fakeSpeed > 155)
+                  {
+                      veh.EngineTorqueMultiplier = 0.1f;
+                  }
+                  if (fakeSpeed > 160)
+                  {
+                      veh.EngineTorqueMultiplier = 0.0f;
+                  }
+              }
+              else
+              {
+                  veh.EngineTorqueMultiplier = 1f;
+              }*/
+
+            if (Game.IsControlJustPressed(0, GTA.Control.VehicleSelectNextWeapon) && false)
             {
-                if (fakeSpeed > 20)
-                    veh.EngineTorqueMultiplier = 0.8f;
-                if (fakeSpeed > 100)
-                    veh.EngineTorqueMultiplier = 0.67f;
-                if (fakeSpeed > 155)
-                {
-                    veh.EngineTorqueMultiplier = 0.1f;
-                }
-                if (fakeSpeed > 160)
-                {
-                    veh.EngineTorqueMultiplier = 0.0f;
-                }
+                //  aquaPropRemoveStopwatch.Start();
+                // aquaProp = World.CreateProp(new Model(1859431100), veh.GetOffsetInWorldCoords(new Vector3(0.6f, 5f, -3.8f)), false, false);
+                //  aquaProp.Rotation = new Vector3(0f, 90f, 0f);
+                World.TransitionToWeather(World.Weather == GTA.Weather.ThunderStorm ? GTA.Weather.ExtraSunny : GTA.Weather.ThunderStorm, 250);
+
             }
-            else
-            {
-                veh.EngineTorqueMultiplier = 1f;
-            }
+
             var ped = Game.Player.Character;
             RaycastResult ray;
             if (Game.Player.Character.IsInVehicle())
@@ -1721,7 +2002,7 @@ namespace HighBeam
 
         public List<string> espTurnedOffByDefaultList = new List<string>()
         {
-             "schafter", "315", "850", "fiesta", "z4"
+             "schafter", "315", "850", "fiesta", "z4", "eight"
         };
 
         public void ESP()
@@ -2182,7 +2463,7 @@ namespace HighBeam
                     progressTimeStopwatch.Start();
                 }
                 var isSlowTime = timeScale > 2f;
-                if (timeScaleStopwatch.ElapsedMilliseconds > (((1000 * timeScale)) / 60))
+                if (timeScaleStopwatch.ElapsedMilliseconds > (((1000 * (fastForwardTime ? 2 : timeScale))) / 60))
                 {
 
                     if (fastForwardTime)
@@ -3363,7 +3644,7 @@ namespace HighBeam
                     {
                         var light1 = veh.GetOffsetInWorldCoords(new Vector3(0.14f, -2.1f, 0.1f));
                         var light2 = veh.GetOffsetInWorldCoords(new Vector3(-0.14f, -2.1f, 0.1f));
-                         //  Function.Call((Hash)0x6B7256074AE34680, light1.X, light1.Y, light1.Z, light1.X, light1.Y, (light1.Z + 5f), 255, 5, 5, 255);
+                        //  Function.Call((Hash)0x6B7256074AE34680, light1.X, light1.Y, light1.Z, light1.X, light1.Y, (light1.Z + 5f), 255, 5, 5, 255);
                         Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light1.X, light1.Y, light1.Z, 255, 255, 255, 0.22f, 0.5f);
                         Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light2.X, light2.Y, light2.Z, 255, 255, 255, 0.22f, 0.5f);
                     }
@@ -3411,7 +3692,7 @@ namespace HighBeam
                     {
                         var light1 = veh.GetOffsetInWorldCoords(new Vector3(0.10f, -2.39f, 0.23f));
                         var light2 = veh.GetOffsetInWorldCoords(new Vector3(-0.10f, -2.39f, 0.23f));
-                       // Function.Call((Hash)0x6B7256074AE34680, light1.X, light1.Y, light1.Z, light1.X, light1.Y, (light1.Z + 5f), 255, 5, 5, 255);
+                        // Function.Call((Hash)0x6B7256074AE34680, light1.X, light1.Y, light1.Z, light1.X, light1.Y, (light1.Z + 5f), 255, 5, 5, 255);
                         Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light1.X, light1.Y, light1.Z, 255, 255, 255, 0.19f, 0.5f);
                         Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light2.X, light2.Y, light2.Z, 255, 255, 255, 0.19f, 0.5f);
                     }
@@ -3625,14 +3906,20 @@ namespace HighBeam
                         Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light1.X, light1.Y, light1.Z, 250, 215, 149, 0.22f, 0.34f);
 
                     }
-                    if (n.Contains("rover"))
+                    if (n.Contains("pst"))
                     {
-                        var light1 = veh.GetOffsetInWorldCoords(new Vector3(-0.09f, -2.54f, 0.08f));
-                        var light2 = veh.GetOffsetInWorldCoords(new Vector3(0.09f, -2.54f, 0.08f));
-                        //  Function.Call((Hash)0x6B7256074AE34680, light1.X, light1.Y, light1.Z, light1.X, light1.Y, (light1.Z + 5f), 255, 5, 5, 255);
-                        Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light1.X, light1.Y, light1.Z, 250, 171, 80, 0.25f, 0.39f);
-                        Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light2.X, light2.Y, light2.Z, 250, 171, 80, 0.25f, 0.39f);
+                        var light1 = veh.GetOffsetInWorldCoords(new Vector3(-0.24f, -2.85f, 0.38f));
+                        var light2 = veh.GetOffsetInWorldCoords(new Vector3(-0.5f, -2.85f, 0.37f));
+                        Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light1.X, light1.Y, light1.Z, 250, 171, 80, 0.15f, 0.2f);
+                        Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light2.X, light2.Y, light2.Z, 250, 171, 80, 0.15f, 0.2f);
 
+                    }
+                    if (n == "bmw")
+                    {
+                        var light1 = veh.GetOffsetInWorldCoords(new Vector3(-0.09f, -2.57f, 0.12f));
+                        var light2 = veh.GetOffsetInWorldCoords(new Vector3(0.09f, -2.57f, 0.12f));
+                        Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light1.X, light1.Y, light1.Z, 255, 255, 255, 0.13f, 0.34f);
+                        Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light2.X, light2.Y, light2.Z, 255, 255, 255, 0.13f, 0.34f);
                     }
                     if (n.Contains("vela"))
                     {
@@ -3652,10 +3939,10 @@ namespace HighBeam
                     }
                     if (n.Contains("sahar"))
                     {
-                        var light1 = veh.GetOffsetInWorldCoords(new Vector3(-0.08f, -2.15f, 0.064f));
-                        var light2 = veh.GetOffsetInWorldCoords(new Vector3(0.080f, -2.15f, 0.064f));
-                        Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light1.X, light1.Y, light1.Z, 255, 255, 255, 0.18f, 0.17f);
-                        Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light2.X, light2.Y, light2.Z, 255, 255, 255, 0.18f, 0.17f);
+                        var light1 = veh.GetOffsetInWorldCoords(new Vector3(-0.12f, -1.99f, 0.33f));
+                        var light2 = veh.GetOffsetInWorldCoords(new Vector3(0.12f, -1.99f, 0.33f));
+                        Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light1.X, light1.Y, light1.Z, 255, 255, 255, 0.23f, 0.17f);
+                        Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, light2.X, light2.Y, light2.Z, 255, 255, 255, 0.23f, 0.17f);
                     }
                     if (n.Contains("x6"))
                     {
@@ -3804,16 +4091,16 @@ namespace HighBeam
                 }
                 if (n.Contains("xc40"))
                 {
-                    var point1 = veh.GetOffsetInWorldCoords(new Vector3(0.15f, -1.55f, 0.62f));
-                    var point2 = veh.GetOffsetInWorldCoords(new Vector3(-0.15f, -1.55f, 0.62f));
+                    var point1 = veh.GetOffsetInWorldCoords(new Vector3(0.15f, -1.8f, 0.92f));
+                    var point2 = veh.GetOffsetInWorldCoords(new Vector3(-0.15f, -1.8f, 0.92f));
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z, point2.X, point2.Y, point2.Z, 253, 0, 0, 255);
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z - 0.003, point2.X, point2.Y, point2.Z - 0.003, 253, 0, 0, 255);
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z - 0.006, point2.X, point2.Y, point2.Z - 0.006, 253, 0, 0, 255);
                 }
-                if (n.Contains("rs5"))
+                if (n == "bmw")
                 {
-                    var point1 = veh.GetOffsetInWorldCoords(new Vector3(0.2f, -1.4f, 0.56f));
-                    var point2 = veh.GetOffsetInWorldCoords(new Vector3(-0.2f, -1.4f, 0.56f));
+                    var point1 = veh.GetOffsetInWorldCoords(new Vector3(0.2f, -1.66f, 0.62f));
+                    var point2 = veh.GetOffsetInWorldCoords(new Vector3(-0.2f, -1.66f, 0.62f));
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z, point2.X, point2.Y, point2.Z, 253, 0, 0, 255);
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z - 0.003, point2.X, point2.Y, point2.Z - 0.003, 253, 0, 0, 255);
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z - 0.006, point2.X, point2.Y, point2.Z - 0.006, 253, 0, 0, 255);
@@ -3834,10 +4121,10 @@ namespace HighBeam
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z - 0.003, point2.X, point2.Y, point2.Z - 0.003, 253, 0, 0, 255);
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z - 0.006, point2.X, point2.Y, point2.Z - 0.006, 253, 0, 0, 255);
                 }
-                if (n.Contains("c300") && false)
+                if (n.Contains("xjr"))
                 {
-                    var point1 = veh.GetOffsetInWorldCoords(new Vector3(0.21f, -1.67f, 0.78f));
-                    var point2 = veh.GetOffsetInWorldCoords(new Vector3(-0.21f, -1.67f, 0.78f));
+                    var point1 = veh.GetOffsetInWorldCoords(new Vector3(0.21f, -1.58f, 0.83f));
+                    var point2 = veh.GetOffsetInWorldCoords(new Vector3(-0.21f, -1.58f, 0.83f));
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z, point2.X, point2.Y, point2.Z, 253, 0, 0, 255);
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z - 0.003, point2.X, point2.Y, point2.Z - 0.003, 253, 0, 0, 255);
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z - 0.006, point2.X, point2.Y, point2.Z - 0.006, 253, 0, 0, 255);
@@ -3898,7 +4185,7 @@ namespace HighBeam
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z - 0.003, point2.X, point2.Y, point2.Z - 0.003, 253, 0, 0, 255);
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z - 0.006, point2.X, point2.Y, point2.Z - 0.006, 253, 0, 0, 255);
                 }
-                if (n.Contains("sahara"))
+                if (n.Contains("sahara") && false)
                 {
                     var point1 = veh.GetOffsetInWorldCoords(new Vector3(0.2f, -2.33f, 1.24f));
                     var point2 = veh.GetOffsetInWorldCoords(new Vector3(-0.2f, -2.33f, 1.24f));
@@ -4109,14 +4396,13 @@ namespace HighBeam
                     Function.Call((Hash)0x6B7256074AE34680, point1.X, point1.Y, point1.Z - 0.0012, point2.X, point2.Y, point2.Z - 0.012, 221, 0, 0, 255);
                 }
             }
+
             // indicators 
-            if (n.Contains("sq7"))
+            if (n == "bmw")
             {
-                veh.LeftIndicatorLightOn = false;
-                veh.RightIndicatorLightOn = false;
                 if (!ledIndicatorsStayStopwatch.IsRunning)
                     ledIndicatorsStayStopwatch.Start();
-                if (ledIndicatorsStayStopwatch.ElapsedMilliseconds > 800)
+                if (ledIndicatorsStayStopwatch.ElapsedMilliseconds > 750)
                 {
                     ledIndicatorsStayStopwatch = new Stopwatch();
                     ledIndicatorsStayStopwatch.Start();
@@ -4129,13 +4415,13 @@ namespace HighBeam
                 {
                     ledIndicatorsStayStopwatch = new Stopwatch();
                 }
-                if (isLeftIndicatorOn && ledIndicatorsStayStopwatch.ElapsedMilliseconds < 400)
+                if (isLeftIndicatorOn && ledIndicatorsStayStopwatch.ElapsedMilliseconds < 375)
                 {
-                    var leftStart = veh.GetOffsetInWorldCoords(new Vector3(-0.4f, -2.26f, 0.163f));
-                    var leftEnd = veh.GetOffsetInWorldCoords(new Vector3(-0.6f, -2.2f, 0.165f));
+                    var leftStart = veh.GetOffsetInWorldCoords(new Vector3(-0.38f, -2.5f, 0.2f));
+                    var leftEnd = veh.GetOffsetInWorldCoords(new Vector3(-0.6f, -2.44f, 0.198f));
 
-                    var sidStart = veh.GetOffsetInWorldCoords(new Vector3(-0.6f, -2.2f, 0.165f));
-                    var sidEnd = veh.GetOffsetInWorldCoords(new Vector3(-0.73f, -2.11f, 0.165f));
+                    var sidStart = veh.GetOffsetInWorldCoords(new Vector3(-0.6f, -2.44f, 0.198f));
+                    var sidEnd = veh.GetOffsetInWorldCoords(new Vector3(-0.73f, -2.32f, 0.198f));
 
                     var off = 0f;
                     for (var i = 0; i < 6; i++)
@@ -4144,16 +4430,14 @@ namespace HighBeam
                         Function.Call((Hash)0x6B7256074AE34680, leftStart.X, leftStart.Y, leftStart.Z - off, leftEnd.X, leftEnd.Y, leftEnd.Z - off, 255, 252, 15, 255);
                         off += 0.002f;
                     }
-                    //  Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, corona.X, corona.Y, corona.Z, 255, 252, 15, 0.2f, 1.0f);
-                    // Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, coronaLow.X, coronaLow.Y, coronaLow.Z, 255, 252, 15, 1f, 0.5f);
                 }
-                if (isRightIndicatorOn && ledIndicatorsStayStopwatch.ElapsedMilliseconds < 400)
+                if (isRightIndicatorOn && ledIndicatorsStayStopwatch.ElapsedMilliseconds < 375)
                 {
-                    var leftStart = veh.GetOffsetInWorldCoords(new Vector3(0.4f, -2.26f, 0.163f));
-                    var leftEnd = veh.GetOffsetInWorldCoords(new Vector3(0.6f, -2.2f, 0.165f));
+                    var leftStart = veh.GetOffsetInWorldCoords(new Vector3(0.38f, -2.5f, 0.2f));
+                    var leftEnd = veh.GetOffsetInWorldCoords(new Vector3(0.6f, -2.44f, 0.198f));
 
-                    var sidStart = veh.GetOffsetInWorldCoords(new Vector3(0.6f, -2.2f, 0.165f));
-                    var sidEnd = veh.GetOffsetInWorldCoords(new Vector3(0.73f, -2.11f, 0.165f));
+                    var sidStart = veh.GetOffsetInWorldCoords(new Vector3(0.6f, -2.44f, 0.198f));
+                    var sidEnd = veh.GetOffsetInWorldCoords(new Vector3(0.73f, -2.32f, 0.198f));
 
                     var off = 0f;
                     for (var i = 0; i < 6; i++)
@@ -4162,11 +4446,9 @@ namespace HighBeam
                         Function.Call((Hash)0x6B7256074AE34680, leftStart.X, leftStart.Y, leftStart.Z - off, leftEnd.X, leftEnd.Y, leftEnd.Z - off, 255, 252, 15, 255);
                         off += 0.002f;
                     }
-
-                    // Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, corona.X, corona.Y, corona.Z, 255, 252, 15, 0.2f, 1.0f);
-                    //  Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, coronaLow.X, coronaLow.Y, coronaLow.Z, 255, 252, 15, 1f, 0.5f);
                 }
             }
+
             if (n.Contains("m5xx"))
             {
                 if (!ledIndicatorsStayStopwatch.IsRunning)
@@ -4419,7 +4701,7 @@ namespace HighBeam
                 if (isRightIndicatorOn && ledIndicatorsStayStopwatch.ElapsedMilliseconds < 375)
                 {
                     var leftStart = veh.GetOffsetInWorldCoords(new Vector3(0.6f, -1.99f, 0.2f));
-                    var leftEnd = veh.GetOffsetInWorldCoords(new Vector3(0.64f, -1.97f, 0.2f)); 
+                    var leftEnd = veh.GetOffsetInWorldCoords(new Vector3(0.64f, -1.97f, 0.2f));
                     var off = 0f;
                     for (var i = 0; i < 8; i++)
                     {
@@ -4522,6 +4804,55 @@ namespace HighBeam
                     Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, corona.X, corona.Y, corona.Z, 255, 252, 15, 0.05f, 1.0f);
                 }
             }
+            if (n.Contains("xjr"))
+            {
+                if (!ledIndicatorsStayStopwatch.IsRunning)
+                    ledIndicatorsStayStopwatch.Start();
+                if (ledIndicatorsStayStopwatch.ElapsedMilliseconds > 750)
+                {
+                    ledIndicatorsStayStopwatch = new Stopwatch();
+                    ledIndicatorsStayStopwatch.Start();
+                }
+                if (GamePad.GetState(PlayerIndex.One).Buttons.LeftShoulder == XInputDotNetPure.ButtonState.Pressed && isLeftIndicatorOn)
+                {
+                    ledIndicatorsStayStopwatch = new Stopwatch();
+                }
+                if (GamePad.GetState(PlayerIndex.One).Buttons.RightShoulder == XInputDotNetPure.ButtonState.Pressed && isRightIndicatorOn)
+                {
+                    ledIndicatorsStayStopwatch = new Stopwatch();
+                }
+                if (true)
+                {
+                    veh.LeftIndicatorLightOn = false;
+                    veh.RightIndicatorLightOn = false;
+                }
+                if (isLeftIndicatorOn && ledIndicatorsStayStopwatch.ElapsedMilliseconds < 375)
+                {
+                    var leftStart = veh.GetOffsetInWorldCoords(new Vector3(-0.57f, -2.68f, 0.2f));
+                    var leftEnd = veh.GetOffsetInWorldCoords(new Vector3(-0.77f, -2.57f, 0.22f));
+                    var off = 0f;
+                    for (var i = 0; i < 6; i++)
+                    {
+                        Function.Call((Hash)0x6B7256074AE34680, leftStart.X, leftStart.Y, leftStart.Z - off, leftEnd.X, leftEnd.Y, leftEnd.Z - off, 255, 252, 15, 255);
+                        off += 0.002f;
+                    }
+                    var corona = veh.GetOffsetInWorldCoords(new Vector3(-0.6f, -2.26f, 0.52f));
+                    Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, corona.X, corona.Y, corona.Z, 255, 252, 15, 0.05f, 1.0f);
+                }
+                if (isRightIndicatorOn && ledIndicatorsStayStopwatch.ElapsedMilliseconds < 375)
+                {
+                    var leftStart = veh.GetOffsetInWorldCoords(new Vector3(0.57f, -2.68f, 0.2f));
+                    var leftEnd = veh.GetOffsetInWorldCoords(new Vector3(0.77f, -2.57f, 0.22f));
+                    var off = 0f;
+                    for (var i = 0; i < 6; i++)
+                    {
+                        Function.Call((Hash)0x6B7256074AE34680, leftStart.X, leftStart.Y, leftStart.Z - off, leftEnd.X, leftEnd.Y, leftEnd.Z - off, 255, 252, 15, 255);
+                        off += 0.002f;
+                    }
+                    var corona = veh.GetOffsetInWorldCoords(new Vector3(-0.6f, -2.26f, 0.52f));
+                    Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, corona.X, corona.Y, corona.Z, 255, 252, 15, 0.05f, 1.0f);
+                }
+            }
             if (n.Contains("a7"))
             {
                 if (!ledIndicatorsStayStopwatch.IsRunning)
@@ -4571,7 +4902,7 @@ namespace HighBeam
                     Function.Call(Hash.DRAW_LIGHT_WITH_RANGE, corona.X, corona.Y, corona.Z, 255, 252, 15, 0.05f, 1.0f);
                 }
             }
-            if (n.Contains("720"))
+            if (n.Contains("720") && false)
             {
                 if (!ledIndicatorsStayStopwatch.IsRunning)
                     ledIndicatorsStayStopwatch.Start();
@@ -5478,16 +5809,18 @@ namespace HighBeam
         }
         private void Creep()
         {
+            if (lastVehPos.X == 999999999999)
+                lastVehPos = veh.GetOffsetInWorldCoords(new Vector3(0, -1, 0));
+            isReversing = veh.Position.DistanceTo(lastVehPos) < 0.99f;
+            lastVehPos = veh.GetOffsetInWorldCoords(new Vector3(0, -1, 0));
+
             if (!isParkingGear && !isCruiseControlActive && !isParkingMode && drivingMode != "parking")
             {
                 if (speedInKmh == 0 && !speed0Stopwatch.IsRunning)
                     speed0Stopwatch.Start();
                 if (speedInKmh > 7 && speed0Stopwatch.IsRunning)
                     speed0Stopwatch = new Stopwatch();
-                if (lastVehPos.X == 999999999999)
-                    lastVehPos = veh.GetOffsetInWorldCoords(new Vector3(0, -1, 0));
-                isReversing = veh.Position.DistanceTo(lastVehPos) < 0.99f;
-                lastVehPos = veh.GetOffsetInWorldCoords(new Vector3(0, -1, 0));
+
                 if (isReversing && GamePad.GetState(PlayerIndex.One).Triggers.Right < 1 && speed0Stopwatch.ElapsedMilliseconds > 1000)
                 {
                     Function.Call((Hash)0x92B35082E0B42F66, Game.Player.LastVehicle, false);
@@ -6552,7 +6885,7 @@ var isRightCar = isEmpty.LightsOn && (zDiff < 8 && zDiff > -8);
                 if (Game.IsControlJustPressed(0, GTA.Control.ScriptPadDown) && cruiseControlActivationStopWatch.ElapsedMilliseconds <= 200 && cruiseControlActivationStopWatch.IsRunning && speedInKmh > 2)
                 {
                     cruiseControlActivationStopWatch.Stop();
-                  //  odometer = 0;
+                    //  odometer = 0;
                 }
                 if (Game.IsControlJustPressed(0, GTA.Control.ScriptPadDown) && speedInKmh > 2)
                 {
@@ -6716,7 +7049,7 @@ var isRightCar = isEmpty.LightsOn && (zDiff < 8 && zDiff > -8);
                         cluster.Items.Add(new UIText((consump == 0 ? "0.0" : consump.ToString()), new Point(81, heigh - 1), 0.19f, color, GTA.Font.ChaletLondon, true));
                     }
 
-                  //  cluster.Items.Add(new UIText((Math.Round(odo, 0).ToString()), new Point(126, heigh), 0.16f, System.Drawing.Color.White, GTA.Font.ChaletLondon, true));
+                    //  cluster.Items.Add(new UIText((Math.Round(odo, 0).ToString()), new Point(126, heigh), 0.16f, System.Drawing.Color.White, GTA.Font.ChaletLondon, true));
                     cluster.Items.Add(new UIText((Math.Floor(tempOdo).ToString()), new Point(126, heigh), 0.16f, System.Drawing.Color.White, GTA.Font.ChaletLondon, true));
 
                     string gear = "N";
@@ -6892,6 +7225,382 @@ var isRightCar = isEmpty.LightsOn && (zDiff < 8 && zDiff > -8);
                     espIcon.Draw();
                 }
             }
+
+        }
+        private int x1 = 0;
+        private int y1 = 0;
+        private int x2 = 0;
+        private int y2 = 0;
+        private int iii = 1;
+        private List<string> gaugeSpeedPoints = new List<string>()
+        {
+            "", "220 .", "", "240 .", "", "260 .", "", "",  "", "", ". 0", "", ". 20", "", ". 40", "", ". 60", "", ". 80", "", ". 100", "", ". 120", "", "140 .", "", "160 .",  "", "180 .",  "", "200 .",
+             "", "", "","","","","","", "", "", "",
+              "", "", "","","","","","", "", "", "",
+               "", "", "","","","","","", "", "", "",
+        };
+
+        private List<string> gaugeSpeedPointsVw = new List<string>()
+        {
+            "       .", "       .", "160 .", "      .", "      .",  "180 .", "","", "", "", "", ". 0", ".", ". 20", ".",  ".", ". 40", ".", ".", ". 60", "",  ". 80", "",
+             ".", "100 .", "       .","","120 .","      .","       .","140 .", "", "", "",
+              "", "", "","","","","","", "", "", "",
+               "", "", "","","","","","", "", "", "",
+        };
+
+        private System.Drawing.Color needleColor = System.Drawing.Color.Red;
+        private System.Drawing.Color digitalKmhColor = System.Drawing.Color.WhiteSmoke;
+        private System.Drawing.Color speedPointsColor = System.Drawing.Color.White;
+        private static string gaugeType = "vwbus";
+        private void OvalGauge()
+        {
+
+            if (Game.Player.Character.IsInVehicle(veh) && veh.ClassType != VehicleClass.Planes)
+            {
+                if (veh.LightsOn)
+                {
+                    // night mode
+                    needleColor = System.Drawing.Color.DarkRed;
+                    digitalKmhColor = System.Drawing.Color.DarkGray;
+                    speedPointsColor = System.Drawing.Color.DarkGray;
+                }
+                else
+                {
+                    needleColor = System.Drawing.Color.Red;
+                    digitalKmhColor = System.Drawing.Color.WhiteSmoke;
+                    speedPointsColor = System.Drawing.Color.White;
+                }
+
+                var needle = new UIContainer(new Point(136, UI.HEIGHT - 205), new Size(270, 120), System.Drawing.Color.FromArgb(0, 0, 0, 0));
+                var xOffset = 130;
+                var yOffset = 54;
+
+                var gauge = new UIContainer(new Point(0, UI.HEIGHT - 250), new Size(270, 120), System.Drawing.Color.FromArgb(80, 0, 0, 0));
+                var speedPoints = 31;
+                var speedPointsList = gaugeSpeedPoints;
+
+                if (gaugeType == "vwbus")
+                {
+                    speedPointsList = gaugeSpeedPointsVw;
+                    speedPointsColor = System.Drawing.Color.FromArgb(255, 32, 26, 235);
+                    needleColor = System.Drawing.Color.FromArgb(255, 254, 5, 16);
+                }
+
+                for (var ix = 0; ix < speedPoints; ix++)
+                {
+                    var xx2 = (int)(83 * Math.Cos(2 * Math.PI * ix / speedPoints));
+                    var yy2 = (int)(55 * Math.Sin(2 * Math.PI * ix / speedPoints));
+                    gauge.Items.Add(new UIText(speedPointsList[ix], new Point((int)xx2 + xOffset, (int)yy2 + yOffset), 0.32f, speedPointsColor, GTA.Font.ChaletComprimeCologne, false));
+                }
+
+
+                gauge.Items.Add(new UIText("km/h", new Point(138, 42), 0.22f, digitalKmhColor, GTA.Font.ChaletLondon, false));
+                gauge.Items.Add(new UIText(fakeSpeed.ToString(), new Point(fakeSpeed > 99 ? (fakeSpeed > 199 ? 113 : 116) : (fakeSpeed < 10) ? 124 : 120, 42), 0.22f, digitalKmhColor, GTA.Font.ChaletLondon, false));
+
+                string gear = "N";
+                if (isCreep || !isCreep || speedInKmh > 0)
+                    gear = "D";
+                if (isReversing)
+                    gear = "R";
+                if (isParkingGear) 
+                    gear = "P";
+                if (isParkingMode)
+                    gear = "N";
+                System.Drawing.Color driveGearColor = System.Drawing.Color.White;
+                if (drivingMode == "eco")
+                    driveGearColor = System.Drawing.Color.SpringGreen;
+                if (drivingMode == "sport")
+                    driveGearColor = System.Drawing.Color.OrangeRed;
+                if (drivingMode == "ev")
+                    driveGearColor = System.Drawing.Color.RoyalBlue;
+                if (drivingMode == "boost")
+                {
+                    driveGearColor = System.Drawing.Color.FromArgb(255, 211, 26, 23);
+                }
+                var prndOffset = 26;
+                gauge.Items.Add(new UIText("P", new Point(98 + prndOffset, 86), 0.27f, gear == "P" ? System.Drawing.Color.White : System.Drawing.Color.DarkSlateGray, GTA.Font.ChaletLondon, true));
+                gauge.Items.Add(new UIText("R", new Point(110 + prndOffset, 86), 0.27f, gear == "R" ? System.Drawing.Color.White : System.Drawing.Color.DarkSlateGray, GTA.Font.ChaletLondon, true));
+                gauge.Items.Add(new UIText("N", new Point(122 + prndOffset, 86), 0.27f, gear == "N" ? System.Drawing.Color.White : System.Drawing.Color.DarkSlateGray, GTA.Font.ChaletLondon, true));
+                gauge.Items.Add(new UIText("D", new Point(134 + prndOffset, 86), 0.27f, gear == "D" ? driveGearColor : System.Drawing.Color.DarkSlateGray, GTA.Font.ChaletLondon, true));
+
+
+                //fuel
+                var start = 14f;
+                var end = 50f;
+                var currentFuel = start + (end - start) * (fuelRemainingPercentage / 100);
+                var heigh = 108;
+
+                if (true)
+                {
+                    gauge.Items.Add(new UIText("E", new Point(6, heigh + 1), 0.13f, System.Drawing.Color.LightGray, GTA.Font.ChaletLondon, true));
+
+                    if (isPhevVehicle)
+                    {
+                        var currentBattery = start + (end - start) * (HybridEngine.batteryRemainingPercentage / 100);
+                        gauge.Items.Add(new UIContainer(new Point(14, heigh + 6), new Size((int)(end - start), isPhevVehicle ? 3 : 5), System.Drawing.Color.FromArgb(40, 65, 105, 225)));
+                        gauge.Items.Add(
+                            new UIContainer(
+                                new Point(14, heigh + 6),
+                                new Size((int)(currentBattery - start),
+                                isPhevVehicle ? 3 : 5),
+                                isRangeExtenderRunning && !isPhevOnElectricEngine ? System.Drawing.Color.FromArgb(220, 68, 186, 70) : System.Drawing.Color.RoyalBlue)
+                            );
+                    }
+                    if (isEvVehicle)
+                    {
+                        var currentBattery = start + (end - start) * (ElectricEngine.batteryRemainingPercentage / 100);
+                        gauge.Items.Add(new UIContainer(new Point(14, heigh + 3), new Size((int)(end - start), 5), System.Drawing.Color.FromArgb(40, 65, 105, 225)));
+                        gauge.Items.Add(new UIContainer(new Point(14, heigh + 3), new Size((int)(currentBattery - start), 5), System.Drawing.Color.RoyalBlue));
+                    }
+                    else
+                    {
+                        gauge.Items.Add(new UIContainer(new Point(14, heigh + 3), new Size((int)(end - start), isPhevVehicle ? 3 : 5), System.Drawing.Color.FromArgb(40, 227, 111, 75)));
+                        gauge.Items.Add(new UIContainer(new Point(14, heigh + 3), new Size((int)(currentFuel - start), isPhevVehicle ? 3 : 5), System.Drawing.Color.FromArgb(255, 227, 111, 75)));
+                    }
+                    gauge.Items.Add(new UIText("|", new Point(14, heigh), 0.19f, System.Drawing.Color.Red, GTA.Font.ChaletLondon, true));
+                    gauge.Items.Add(new UIText("|", new Point(23, heigh + 1), 0.15f, System.Drawing.Color.White, GTA.Font.ChaletLondon, true));
+                    gauge.Items.Add(new UIText("|", new Point(32, heigh), 0.19f, System.Drawing.Color.White, GTA.Font.ChaletLondon, true));
+                    gauge.Items.Add(new UIText("|", new Point(41, heigh + 1), 0.15f, System.Drawing.Color.White, GTA.Font.ChaletLondon, true));
+                    gauge.Items.Add(new UIText("|", new Point(50, heigh), 0.19f, System.Drawing.Color.White, GTA.Font.ChaletLondon, true));
+
+                    gauge.Items.Add(new UIText("F", new Point(59, heigh + 1), 0.13f, System.Drawing.Color.LightGray, GTA.Font.ChaletLondon, true));
+                    if (isLowFuel && !isEvVehicle)
+                        gauge.Items.Add(new UIText("LOW FUEL", new Point(47, heigh - 5), 0.12f, System.Drawing.Color.Yellow, GTA.Font.ChaletLondon, true));
+                    var consump = isPhevOnElectricEngine ? HybridEngine.instantBatteryConsumption : instantFuelConsumption;
+                    var color = isPhevOnElectricEngine ? System.Drawing.Color.RoyalBlue : System.Drawing.Color.White;
+                    if (isEvVehicle)
+                    {
+                        consump = ElectricEngine.instantBatteryConsumption;
+                        color = System.Drawing.Color.RoyalBlue;
+                    }
+                    gauge.Items.Add(new UIText((consump == 0 ? "0.0" : consump.ToString()), new Point(14, heigh - 8), 0.16f, color, GTA.Font.ChaletLondon, true));
+                }
+
+
+                var h = fakeTimeHours;
+                var m = fakeTimeMinutes;
+
+
+                gauge.Items.Add(new UIText(h + ":" + (m.ToString().Length == 1 ? 0 + "" + m : m.ToString()), new Point(255, 2), 0.24f, System.Drawing.Color.White, GTA.Font.ChaletLondon, true));
+                if ((isEv && !isBoostMode && isHybridMode) || isElectricMode)
+                {
+                    // cluster.Items.Add(new UIText("EV", new Point(90, 20), 0.24f, System.Drawing.Color.RoyalBlue, GTA.Font.ChaletLondon, true));
+                }
+                if (!isCreep && speedInKmh < 1 && !isParkingGear)
+                {
+                    gauge.Items.Add(new UIText("(H)", new Point(14, 2), 0.2f, System.Drawing.Color.Gray, GTA.Font.ChaletLondon, true));
+                }
+                if (isParkingGear)
+                {
+                    gauge.Items.Add(new UIText("(P)", new Point(35, 2), 0.2f, System.Drawing.Color.Red, GTA.Font.ChaletLondon, true));
+                }
+                if (!isESPActive)
+                {
+                    gauge.Items.Add(new UIText("TCS/ESP", new Point(55, 4), 0.115f, System.Drawing.Color.FromArgb(255, 247, 189, 1), GTA.Font.ChaletLondon, true));
+                }
+                if (veh.LightsOn)
+                {
+                    gauge.Items.Add(new UIText("Œ", new Point(81, 2), 0.2f, System.Drawing.Color.LawnGreen, GTA.Font.ChaletLondon, true));
+                }
+                if (veh.HighBeamsOn)
+                {
+                    gauge.Items.Add(new UIText("Œ", new Point(140, 27), 0.24f, System.Drawing.Color.DodgerBlue, GTA.Font.ChaletLondon, true));
+                }
+                if (isParkingMode)
+                {
+                    gauge.Items.Add(new UIText(@"|P|", new Point(36, 18), 0.3f, System.Drawing.Color.Blue, GTA.Font.ChaletLondon, true));
+                }
+                if (isTruckMode)
+                {
+                    gauge.Items.Add(new UIText("HAUL", new Point(34, 22), 0.17f, System.Drawing.Color.Gray, GTA.Font.ChaletLondon, true));
+                }
+                if (isLaunchControl)
+                {
+                    gauge.Items.Add(new UIText("LC", new Point(34, 22), 0.17f, System.Drawing.Color.Red, GTA.Font.ChaletLondon, true));
+                }
+                if (isCruiseControlActive)
+                {
+                    gauge.Items.Add(new UIText("(" + cruiseControlSpeed.ToString() + ")", new Point(114, 17), 0.3f, System.Drawing.Color.DarkSlateGray, GTA.Font.ChaletLondon, true));
+                }
+                //traffic 
+                gauge.Items.Add(new UIText(isOnAutobahn ? "hwy" : tv.ToString(), new Point(15, 80), 0.17f, System.Drawing.Color.White, GTA.Font.ChaletLondon, true));
+
+
+
+                if (((espClusterRunningStopwatch.ElapsedMilliseconds % 200 < 100)) && espClusterRunningStopwatch.IsRunning)
+                {
+                    var espIcon = new UIContainer(new Point(120, UI.HEIGHT - 195), new Size(18, 8), System.Drawing.Color.FromArgb(255, 247, 189, 1));
+                    espIcon.Items.Add(new UIText("ESP", new Point(0, 0), 0.14f, System.Drawing.Color.Black, GTA.Font.ChaletLondon, false));
+                    espIcon.Draw();
+                }
+
+                if (((tcsClusterRunningStopwatch.ElapsedMilliseconds % 200 < 100)) && tcsClusterRunningStopwatch.IsRunning)
+                {
+                    var espIcon = new UIContainer(new Point(140, UI.HEIGHT - 195), new Size(18, 8), System.Drawing.Color.FromArgb(255, 247, 189, 1));
+                    espIcon.Items.Add(new UIText("TCS", new Point(0, 0), 0.14f, System.Drawing.Color.Black, GTA.Font.ChaletLondon, false));
+                    espIcon.Draw();
+                }
+
+                // Iterators, counters required by algorithm
+                int x, y, dx, dy, dx1, dy1, px, py, xe, ye, i;
+                // Calculate line deltas
+                dx = x2 - x1;
+                dy = y2 - y1;
+                // Create a positive copy of deltas (makes iterating easier)
+                dx1 = Math.Abs(dx);
+                dy1 = Math.Abs(dy);
+                // Calculate error intervals for both axis
+                px = 2 * dy1 - dx1;
+                py = 2 * dx1 - dy1;
+                // The line is X-axis dominant
+                if (dy1 <= dx1)
+                {
+                    // Line is drawn left to right
+                    if (dx >= 0)
+                    {
+                        x = x1; y = y1; xe = x2;
+                    }
+                    else
+                    { // Line is drawn right to left (swap ends)
+                        x = x2; y = y2; xe = x1;
+                    }
+                    DrawNeedlePoint(needle, x, y);
+
+                    for (i = 0; x < xe; i++)
+                    {
+                        x = x + 1;
+                        // Deal with octants...
+                        if (px < 0)
+                        {
+                            px = px + 2 * dy1;
+                        }
+                        else
+                        {
+                            if ((dx < 0 && dy < 0) || (dx > 0 && dy > 0))
+                            {
+                                y = y + 1;
+                            }
+                            else
+                            {
+                                y = y - 1;
+                            }
+                            px = px + 2 * (dy1 - dx1);
+                        }
+                        // Draw pixel from line span at
+                        // currently rasterized position
+                        DrawNeedlePoint(needle, x, y);
+                    }
+                }
+                else
+                { // The line is Y-axis dominant
+                  // Line is drawn bottom to top
+                    if (dy >= 0)
+                    {
+                        x = x1; y = y1; ye = y2;
+                    }
+                    else
+                    { // Line is drawn top to bottom
+                        x = x2; y = y2; ye = y1;
+                    }
+                    DrawNeedlePoint(needle, x, y);
+
+                    for (i = 0; y < ye; i++)
+                    {
+                        y = y + 1;
+                        // Deal with octants...
+                        if (py <= 0)
+                        {
+                            py = py + 2 * dx1;
+                        }
+                        else
+                        {
+                            if ((dx < 0 && dy < 0) || (dx > 0 && dy > 0))
+                            {
+                                x = x + 1;
+                            }
+                            else
+                            {
+                                x = x - 1;
+                            }
+                            py = py + 2 * (dx1 - dy1);
+                        }
+                        // Draw pixel from line span at
+                        // currently rasterized position
+                        DrawNeedlePoint(needle, x, y);
+                    }
+                }
+                needlesCount = 0;
+
+                var maxRadius = 250;
+                var maxSpeed = 260f;
+                if (gaugeType == "vwbus")
+                {
+                    maxSpeed = 180f;
+                }
+
+                var needlePercentage = (((float)fakeSpeed / maxSpeed) * 100f) + 42f;
+                if (needlePercentage > 142)
+                {
+                    needlePercentage = 142;
+                }
+
+                var realPercentage = (0 + (maxRadius / 100) * needlePercentage);
+
+                x2 = (int)(85 * Math.Cos(2 * Math.PI * realPercentage / maxRadius));
+                y2 = (int)(55 * Math.Sin(2 * Math.PI * realPercentage / maxRadius));
+                   x1 = (int)(67 * Math.Cos(2 * Math.PI * realPercentage / maxRadius));
+                 y1 = (int)(44 * Math.Sin(2 * Math.PI * realPercentage / maxRadius));
+                // x1 = 0;
+                // y1 = 0;
+                /* old 
+                  x2 = (int)(85 * Math.Cos(2 * Math.PI * realPercentage / maxRadius));
+                y2 = (int)(55 * Math.Sin(2 * Math.PI * realPercentage / maxRadius));
+                x1 = (int)(67 * Math.Cos(2 * Math.PI * realPercentage / maxRadius));
+                y1 = (int)(44 * Math.Sin(2 * Math.PI * realPercentage / maxRadius));
+                 */
+
+                var odometerDisplay = new UIContainer(new Point(159, 70), new Size(50, 25));
+                // meters
+                var meter = new UIContainer(new Point(0, 0), new Size(10, 7), System.Drawing.Color.FromArgb(100, 255, 255, 255));
+                meter.Items.Add(new UIText(tempOdo < 1 ? "0" : tempOdo.ToString().Split('.')[1].ToCharArray()[0].ToString(), new Point(1, -1), 0.15f, System.Drawing.Color.DarkRed));
+                odometerDisplay.Items.Add(meter);
+
+                // 0
+                var km0val = tempOdo == 0 ? "0" : tempOdo.ToString().Split('.')[0];
+                var km0 = new UIContainer(new Point(-10, 0), new Size(10, 7), System.Drawing.Color.FromArgb(120, 0, 0, 0));
+                km0.Items.Add(new UIText(km0val[km0val.Length - 1].ToString(), new Point(1, -1), 0.15f, System.Drawing.Color.White));
+                odometerDisplay.Items.Add(km0);
+                // 00
+                var km00 = new UIContainer(new Point(-20, 0), new Size(10, 7), System.Drawing.Color.FromArgb(120, 0, 0, 0));
+                km00.Items.Add(new UIText(tempOdo < 10f ? "0" : km0val[km0val.Length - 2].ToString(), new Point(1, -1), 0.15f, System.Drawing.Color.White));
+                odometerDisplay.Items.Add(km00);
+                // 000
+                var km000 = new UIContainer(new Point(-30, 0), new Size(10, 7), System.Drawing.Color.FromArgb(120, 0, 0, 0));
+                km000.Items.Add(new UIText(tempOdo < 100f ? "0" : km0val[km0val.Length - 3].ToString(), new Point(1, -1), 0.15f, System.Drawing.Color.White));
+                odometerDisplay.Items.Add(km000);
+                // 0000
+                var km0000 = new UIContainer(new Point(-40, 0), new Size(10, 7), System.Drawing.Color.FromArgb(120, 0, 0, 0));
+                km0000.Items.Add(new UIText(tempOdo < 1000f ? "0" : km0val[km0val.Length - 4].ToString(), new Point(1, -1), 0.15f, System.Drawing.Color.White));
+                odometerDisplay.Items.Add(km0000);
+
+                gauge.Items.Add(odometerDisplay);
+
+                gauge.Draw();
+                needle.Draw();
+                var texture = AppDomain.CurrentDomain.BaseDirectory + "\\merc.png";
+                UI.DrawTexture(texture, 2, 1, 60, new Point(200, 200), new Size(200, 200));
+            }
+        }
+
+        private static int needlesCount = 0;
+        private void DrawNeedlePoint(UIContainer needleContainer, int x, int y)
+        {
+            if (needlesCount % 3 == 0)
+            {
+                var needleSize = 0.75f;
+                needleContainer.Items.Add(new UIText(".", new Point((int)x, (int)y), needleSize, needleColor, GTA.Font.ChaletLondon, false));
+            }
+            needlesCount++;
         }
 
         private void TruckMode()
@@ -6922,7 +7631,7 @@ var isRightCar = isEmpty.LightsOn && (zDiff < 8 && zDiff > -8);
                 }
                 if (truckTrailer != null)
                 {
-                  //  truckTrailer.HandbrakeOn = GamePad.GetState(PlayerIndex.One).Triggers.Left > 0.8;
+                    //  truckTrailer.HandbrakeOn = GamePad.GetState(PlayerIndex.One).Triggers.Left > 0.8;
                     if (Game.IsControlJustPressed(0, GTA.Control.Jump) && Game.Player.Character.Position.DistanceTo(truckTrailer.Position) < 6 && veh.DisplayName.ToLower().Contains("caddy"))
                     {
                         truckTrailer.Repair();
@@ -7736,10 +8445,10 @@ var isRightCar = isEmpty.LightsOn && (zDiff < 8 && zDiff > -8);
                             sprayZCompensate = 0.6f;
                         }
 
-                        float alpha = 0.1f;
+                        float alpha = 0.05f;
                         if (fakeSpeed < 100)
                         {
-                            alpha = 0.1f;
+                            alpha = 0.05f;
                         }
                         var h = Function.Call<int>((Hash)0x25223CA6B4D20B7F);
 
@@ -7866,18 +8575,7 @@ var isRightCar = isEmpty.LightsOn && (zDiff < 8 && zDiff > -8);
 
         private void NewAquaplaning()
         {
-            /* if (Game.IsControlJustPressed(0, GTA.Control.VehicleSelectNextWeapon) && aquaProp == null)
-             {
-                 aquaPropRemoveStopwatch.Start();
-                 aquaProp = World.CreateProp(new Model(1859431100), veh.GetOffsetInWorldCoords(new Vector3(0.6f, 5f, -3.8f)), false, false);
-                 aquaProp.Rotation = new Vector3(0f, 90f, 0f);
-             }
-             if (aquaPropRemoveStopwatch.ElapsedMilliseconds > 2000)
-             {
-                 aquaPropRemoveStopwatch = new Stopwatch();
-                 aquaProp.Delete();
-                 aquaProp = null;
-             }*/
+
 
             if (descendStopwatch.IsRunning && descendStopwatch.ElapsedMilliseconds > 500)
             {
@@ -7910,10 +8608,10 @@ var isRightCar = isEmpty.LightsOn && (zDiff < 8 && zDiff > -8);
 
                     if (hardSteer)
                     {
-                        waterAmountUnderneathTire += 0.35f;
+                        waterAmountUnderneathTire += 0.6f;
                     }
 
-
+                    // UI.ShowSubtitle(waterAmountUnderneathTire.ToString() + " hardsteer: " + hardSteer.ToString());
 
                     if (aquaplaningCalculationStopwatch.ElapsedMilliseconds >= 1000)
                     {
@@ -7981,13 +8679,10 @@ var isRightCar = isEmpty.LightsOn && (zDiff < 8 && zDiff > -8);
                 aquaplaningCalculationStopwatch.Start();
             }
 
-            if (aquaplaningDurationStopWatch.ElapsedMilliseconds > 2700 && false)
+            if (aquaplaningDurationStopWatch.ElapsedMilliseconds > 2700)
             {
                 aquaplaningDurationStopWatch = new Stopwatch();
                 isAqua = false;
-                veh.HandbrakeOn = false;
-                veh.FixTire(5);
-                veh.FixTire(7);
             }
 
             if (isAqua)
@@ -7997,8 +8692,13 @@ var isRightCar = isEmpty.LightsOn && (zDiff < 8 && zDiff > -8);
                 //    veh.BurstTire(7);
                 //    veh.BurstTire(5);
                 //  }
-                steeringAngle = steeringAngle > 0 ? 1f : -1f;
-                veh.HandbrakeOn = true;
+
+                if (aquaplaningDurationStopWatch.ElapsedMilliseconds < 1100)
+                {
+                    steeringAngle = steeringAngle > 0 ? 1f : -1f;
+                    veh.HandbrakeOn = true;
+                }
+
             }
         }
 

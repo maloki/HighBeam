@@ -54,6 +54,9 @@ namespace HighBeam
         public static List<PropModel> ShowroomPropsToRender = new List<PropModel>();
         public static PropFamilyModel ShowroomRenderedProps = new PropFamilyModel();
 
+        public static List<PropModel> HotelPropsToRender = new List<PropModel>();
+        public static PropFamilyModel HotelRenderedProps = new PropFamilyModel();
+
         public static List<PropModel> TrainStationsPropsToRender = new List<PropModel>();
         public static PropFamilyModel TrainStationsRenderedProps = new PropFamilyModel();
 
@@ -229,6 +232,26 @@ namespace HighBeam
         { 
             Delete(ShowroomRenderedProps);
             ShowroomPropsToRender = new List<PropModel>();
+        }
+
+        public static void LoadHotel()
+        {
+            List<string> chunks = new List<string>() {
+                    "zegrz.xml",
+                };
+            List<PropModel> l = new List<PropModel>();
+            for (var i = 0; i < chunks.Count; ++i)
+            {
+                l.AddRange(ReadXml(chunks[i]));
+            }
+            HotelPropsToRender = l;
+            Render(HotelPropsToRender, HotelRenderedProps);
+        }
+         
+        public static void RemoveHotel()
+        {
+            Delete(HotelRenderedProps);
+            HotelPropsToRender = new List<PropModel>();
         }
 
         public static void LoadNyApartment()

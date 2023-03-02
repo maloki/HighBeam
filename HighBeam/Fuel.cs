@@ -110,7 +110,12 @@ namespace HighBeam
                     new Vector3(-9703.5f, -5618.2f, 4.1f),
                     // zkpane dk7
                     new Vector3(6198.1f, -5595.3f, 76.4f),
-
+                    //dk61 
+                     new Vector3(-4426.6f, 6099.2f, 18.8f),
+                     // a4 1st german autohof
+                        new Vector3(17929.3f, -5219f, 8.3f),
+                        // pyrzowice airport
+                          new Vector3(20926.8f, -6943.5f, 3.2f),
         };
 
         public static bool isFuelPumpActive = false;
@@ -330,7 +335,7 @@ namespace HighBeam
                 isLowFuel = false;
             }
             if (fuelRemainingPercentage < 3f)
-            { 
+            {
                 veh.EngineTorqueMultiplier = 0.3f;
             }
             if (fuelRemainingPercentage < 0.1f)
@@ -348,7 +353,8 @@ namespace HighBeam
                 distanceTraveledStopwatch.Start();
             }
             odo += ((fakeSpeed * (TimeSpan.FromMilliseconds(11).TotalHours)) * 10);
-            tempOdo += (fakeSpeed * (TimeSpan.FromMilliseconds(1).TotalHours) * 20);
+            tempOdo += (fakeSpeed * (TimeSpan.FromMilliseconds(1).TotalHours) * 30); 
+            // tempOdo += (fakeSpeed * (TimeSpan.FromMilliseconds(1).TotalHours) * 20); real km
 
         }
     }

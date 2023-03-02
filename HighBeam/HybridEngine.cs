@@ -29,7 +29,7 @@ namespace HighBeam
         public static bool isElectricMode = false;
         public static Stopwatch tailgateStopWatch = new Stopwatch();
         public static bool toggleChargerCord = false;
-        public static bool isChargerCord;
+        public static bool isChargerCord; 
         public static List<Prop> ChargerProps = new List<Prop>();
         public static bool isTesla = false;
         public static bool isPhevVehicle = false;
@@ -69,7 +69,7 @@ namespace HighBeam
                 }
                 else
                 {
-                    PhevAutoMode();
+                    PhevAutoMode(); 
                 }
                 if ((isLowBattery || isRangeExtenderRunning) && drivingMode == "ev")
                 {
@@ -164,8 +164,8 @@ namespace HighBeam
         {
             if (fakeSpeed > 43)
                 veh.EngineTorqueMultiplier = 0.7f;
-            else
-                veh.EngineTorqueMultiplier = 1.5f;
+            else if(!isReversing)
+                veh.EngineTorqueMultiplier = 1.3f;
 
             if (fakeSpeed > 118 && drivingMode == "ev")
             {
@@ -204,7 +204,7 @@ namespace HighBeam
 
         private static List<Exhaust> PhevList = new List<Exhaust>()
         {
-          // new Exhaust(){VehName = "sahara", Original = "sandking", Active = "surge"},
+           new Exhaust(){VehName = "sahara", Original = "sandking", Active = "surge"},
          //  new Exhaust(){VehName = "63", Original = "tailgater", Active = "surge"},
       //     new Exhaust(){VehName = "bmw", Original = "tailgater", Active = "surge"},
            new Exhaust(){VehName = "x5", Original = "baller", Active = "surge"},

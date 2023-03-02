@@ -9,17 +9,20 @@ using System.Threading.Tasks;
 using static HighBeam.NyApartment;
 using static HighBeam.AutobahnPropStreamer;
 using static HighBeam.Main;
+using System.Diagnostics;
 
 namespace HighBeam
 {
     public static class Showroom
     {
         private static bool isShowroomLoaded;
+        private static Stopwatch showroomDevStopwatch = new Stopwatch();
+        private static bool isDevMode = false;
         public static void RunShowroom()
         {
             // if (Game.IsControlJustPressed(0, Control.VehicleSelectNextWeapon))
             var pos = new Vector3(-1961.2f, 5664.4f, 10.9f);
-           if (pos.DistanceTo(Game.Player.Character.Position) < 200 && !isShowroomLoaded)
+           if (pos.DistanceTo(Game.Player.Character.Position) < 430 && !isShowroomLoaded)
             {
                 isShowroomLoaded = true;
                 LoadShowroom();
@@ -27,14 +30,42 @@ namespace HighBeam
                 LoadVehiclesShowroom();
                 LoadPeds();
             }
-           if(pos.DistanceTo(Game.Player.Character.Position) > 250 && isShowroomLoaded)
+           if(pos.DistanceTo(Game.Player.Character.Position) > 480 && isShowroomLoaded)
             {
                 RemoveVehicles();
                 RemoveShowroom();
                 RemovePeds();
+                isDevMode = false;
                 isShowroomLoaded = false;
             }
             //  UI.ShowSubtitle(veh.Model.Hash.ToString());
+            if (isShowroomLoaded)
+            {
+                if (Game.IsControlJustPressed(0, Control.VehicleHorn))
+                {
+                    showroomDevStopwatch.Start();
+                }
+                if (Game.IsControlJustReleased(0, Control.VehicleHorn))
+                {
+                    showroomDevStopwatch = new Stopwatch();
+                }
+                if (showroomDevStopwatch.IsRunning && showroomDevStopwatch.ElapsedMilliseconds > 3000)
+                {
+                    showroomDevStopwatch = new Stopwatch();
+                    isDevMode = !isDevMode;
+                }
+                if (isDevMode)
+                {
+                    DevMode();
+                }
+            }
+        }
+
+        private static void DevMode()
+        {
+            var vehId = veh.Model.Hash;
+            var color = veh.PrimaryColor.ToString();
+            UI.ShowSubtitle($"Dev: model id: {vehId};   color: {color}");
         }
 
         public class PedModel
@@ -145,6 +176,27 @@ namespace HighBeam
                 Color = VehicleColor.MetallicBlack,
                 Plate = "sk 8n241"
             },
+                new ParkingModel() {
+                Position = new Vector3(-1990f, 5688.5f, 10.5f),
+                Heading = 102.4f,
+                Model = 1037885404,
+                Color = VehicleColor.MetallicBlue,
+                Plate = "ZS 4n261"
+            },
+                      new ParkingModel() {
+                Position = new Vector3(-1983.5f, 5689.9f, 10.5f),
+                Heading = 102.4f,
+                Model = 1037885404,
+                Color = VehicleColor.MetallicBlack,
+                Plate = "sk 8n241"
+            },
+                                 new ParkingModel() {
+                Position = new Vector3(-1977.5f, 5691.0f, 10.5f),
+                Heading = 102.4f,
+                Model = 929136329,
+                Color = VehicleColor.MetallicStoneSilver,
+                Plate = "DW 4n241"
+            },
         };
 
         public static void LoadVehiclesShowroom()
@@ -160,6 +212,10 @@ namespace HighBeam
                 vehicl.NumberPlate = p.Plate;
                 vehicl.NumberPlateType = NumberPlateType.BlueOnWhite1;
                 vehicl.InteriorLightOn = true;
+                for(var ix = 0; ix < 11; ix++)
+                {
+                    Function.Call(Hash.SET_VEHICLE_MOD, vehicl, ix, 0, false);
+                }
                 vehicles.Add(vehicl);
             }
         }

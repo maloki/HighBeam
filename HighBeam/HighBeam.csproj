@@ -91,6 +91,7 @@
     <Compile Include="ElectricEngine.cs" />
     <Compile Include="Fuel.cs" />
     <Compile Include="highwayold_backup.cs" />
+    <Compile Include="Hotel.cs" />
     <Compile Include="House.cs" />
     <Compile Include="HybridEngine.cs" />
     <Compile Include="NewHighwayTraffic\CarList.cs" />
